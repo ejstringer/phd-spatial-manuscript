@@ -65,8 +65,8 @@ figcor <- ggplot(cn, aes(y = captures, x = npp, group = species)) +
   scale_x_log10()+
   theme(panel.grid = element_blank(),
         strip.background = element_blank(),
-        legend.position = 'inside',
-        legend.position.inside = c(0.78,0.3),
+       # legend.position = 'inside',
+        legend.position = c(0.78,0.3),
         legend.key.size = unit(0.5, units = 'cm'),
         legend.background = element_rect(colour = 'grey'),
         axis.title = element_text(size = 13),
@@ -127,8 +127,8 @@ mfn <- fstdata |>
             x = npp.log) |>
   glimpse()
 
-figNPP <- ggplot(dat, aes(y = fst, x = npp, fill = phase)) +
-  stat_smooth(data = filter(dat, ph), show.legend = F,
+figNPP <- ggplot(fstdata, aes(y = fst, x = npp, fill = phase)) +
+  stat_smooth(data = filter(fstdata, ph), show.legend = F,
               method = lm, se = F, colour = 'grey75', aes(group = phase),
               lwd = 2) +
   geom_point(aes(colour = phase, fill = phase), size = 3, show.legend = F,
@@ -172,22 +172,22 @@ ggsave(filename = './figures/caps_npp_fst_spp.png', figCapsNPP,
 
 #https://stats.stackexchange.com/questions/570148/is-there-anything-like-a-two-way-anova-but-for-continuous-independent-variables
 m_fst_anova_ph <- anova(lm(fst ~ captures + npp.log,
-                           data = filter(datScaled,
+                           data = filter(fstdata,
                                          species == "Pseudomys hermannsburgensis")))
 
 m_fst_anova_sy <- anova(lm(fst ~ captures + npp.log,
-                           data = filter(datScaled,
+                           data = filter(fstdata,
                                          species == "Sminthopsis youngsoni")))
 
 m_fst_anova_ph
 m_fst_anova_sy
 
 m_fst_ph <- (lmer(fst ~ captures + npp.log + (1|phaseNo),
-            data = filter(datScaled,
+            data = filter(fstdata,
                           species == "Pseudomys hermannsburgensis")))
 
 m_fst_sy <- (lmer(fst ~ captures + npp.log + (1|phaseNo),
-                           data = filter(datScaled,
+                           data = filter(fstdata,
                                          species == "Sminthopsis youngsoni")))
 
 summary(m_fst_ph)
@@ -299,7 +299,7 @@ fig_r_npp <- xibdcorr %>%
   geom_smooth(method = 'lm', se = F, show.legend = F, aes(colour = species,
                                                           group = species),
               colour = 'grey30')+
-  scale_x_continuous(trans = log_trans(), 
+  scale_x_continuous(trans = scales::log_trans(), 
                      breaks = 8 * 2^seq(0,5,1))+
   facet_grid(~species) +
   ylab('mantel correlation (<1km)')+
@@ -332,3 +332,109 @@ r_plot <- grid.arrange(figCorrelogram,
 ggsave(filename = './figures/caps_npp_r_spp.png',r_plot,
        units = "cm", width = 16, height = 19, dpi = 600)
 
+# flextables --------------------------------------------------------------
+
+em.coef.models <-function(m, spp.ph = T, modelname = 'Interaction'){
+  
+  summary(m)$coefficients %>% 
+    as.data.frame() %>% 
+    mutate(Species = ifelse(spp.ph, 'P. hermanns',
+                            'S. youngsoni'),
+           t = qt(0.975, df),
+           me = t*`Std. Error`,
+           lower = round(Estimate - me, 3),
+           upper = round(Estimate + me, 3),
+           confidence = paste0(round(Estimate,3), ' (',
+                               lower, ' - ', upper, ')'),
+           Parameter = rownames(.),
+           #Species = ifelse(duplicated(Species), NA, Species),
+           sig = `Pr(>|t|)` < 0.05,
+           R2 = round(MuMIn::r.squaredGLMM(m)[2], 2),
+           R2 = ifelse(duplicated(R2), NA, R2),
+           model = modelname,
+           Model = ifelse(duplicated(model), NA, model)) %>% 
+    dplyr::select(Species, Model, Parameter, confidence, R2, sig)%>% 
+    rename(`Estimate (95% CI)` = confidence)
+}
+
+
+# multiple regression ----
+m7 <- (lmer(fst ~ captures + npp.log + (1|phaseNo), 
+            data = filter(fstdata, species == "Pseudomys hermannsburgensis")))
+m8 <- (lmer(fst ~ captures + npp.log + (1|phaseNo), data = filter(fstdata, species == "Sminthopsis youngsoni")))
+anova(m7)
+sjPlot::tab_model(m7, m8, dv.labels = c('P. hermannsburgensis', 'S. youngsoni'),
+                  title = 'Fst', df.method = "satterthwaite",
+                  digits = 3,collapse.ci = T)
+
+m5 <- (lm(fst ~ captures + npp.log, 
+            data = filter(fstdata, species == "Pseudomys hermannsburgensis")))
+m6 <- (lm(fst ~ captures + npp.log, data = filter(fstdata, species == "Sminthopsis youngsoni")))
+
+anova(m5)
+anova(m6)
+
+x <- seq(min(fstdata$captures), max(fstdata$captures), length.out = 100)
+z <- seq(min(fstdata$npp.log), max(fstdata$npp.log), length.out = 100)
+p <- 'L1'
+y <- predict(m7, newdata = data.frame(captures = x, npp.log = z, phaseNo = p))
+
+plot(x, y, col = z, ylim = c(0,0.05))
+
+z <- 1
+y <- predict(m7, newdata = data.frame(captures = x, npp.log = z, phaseNo = p))
+lines(x, y)
+
+
+
+z <- 2
+y <- predict(m7, newdata = data.frame(captures = x, npp.log = z, phaseNo = p))
+lines(x, y)
+
+z <- 3
+y <- predict(m7, newdata = data.frame(captures = x, npp.log = z, phaseNo = p))
+lines(x, y)
+
+z <- 4
+y <- predict(m7, newdata = data.frame(captures = x, npp.log = z, phaseNo = p))
+lines(x, y)
+
+z <- 5
+y <- predict(m7, newdata = data.frame(captures = x, npp.log = z, phaseNo = p))
+lines(x, y)
+
+
+
+# NPP -----
+z <- seq(min(fstdata$captures), max(fstdata$captures), length.out = 100)
+x <- seq(min(fstdata$npp.log), max(fstdata$npp.log), length.out = 100)
+p <- 'L1'
+y <- predict(m7, newdata = data.frame(captures = z, npp.log = x, phaseNo = p))
+
+plot(x, y, col = z, ylim = c(0,0.05))
+
+z <- 1
+y <- predict(m7, newdata = data.frame(captures = z, npp.log = x, phaseNo = p))
+lines(x, y, col = 'pink')
+
+
+
+z <- 5
+y <- predict(m7, newdata = data.frame(captures = z, npp.log = x, phaseNo = p))
+lines(x, y, col = 'orange')
+
+z <- 10
+y <- predict(m7, newdata = data.frame(captures = z, npp.log = x, phaseNo = p))
+lines(x, y, col = 'gold')
+
+z <- 15
+y <- predict(m7, newdata = data.frame(captures = z, npp.log = x, phaseNo = p))
+lines(x, y, col = 'lightgreen')
+
+z <- 20
+y <- predict(m7, newdata = data.frame(captures = z, npp.log = x, phaseNo = p))
+lines(x, y, col = 'green')
+
+
+
+em.coef.models(m7)
