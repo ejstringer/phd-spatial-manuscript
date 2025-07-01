@@ -371,69 +371,25 @@ m5 <- (lm(fst ~ captures + npp.log,
             data = filter(fstdata, species == "Pseudomys hermannsburgensis")))
 m6 <- (lm(fst ~ captures + npp.log, data = filter(fstdata, species == "Sminthopsis youngsoni")))
 
-anova(m5)
+am <- anova(m5)
 anova(m6)
 
-x <- seq(min(fstdata$captures), max(fstdata$captures), length.out = 100)
-z <- seq(min(fstdata$npp.log), max(fstdata$npp.log), length.out = 100)
-p <- 'L1'
-y <- predict(m7, newdata = data.frame(captures = x, npp.log = z, phaseNo = p))
 
-plot(x, y, col = z, ylim = c(0,0.05))
+am$`Pr(>F)` <- c('<0.001', '<0.001', NA)
 
-z <- 1
-y <- predict(m7, newdata = data.frame(captures = x, npp.log = z, phaseNo = p))
-lines(x, y)
-
-
-
-z <- 2
-y <- predict(m7, newdata = data.frame(captures = x, npp.log = z, phaseNo = p))
-lines(x, y)
-
-z <- 3
-y <- predict(m7, newdata = data.frame(captures = x, npp.log = z, phaseNo = p))
-lines(x, y)
-
-z <- 4
-y <- predict(m7, newdata = data.frame(captures = x, npp.log = z, phaseNo = p))
-lines(x, y)
-
-z <- 5
-y <- predict(m7, newdata = data.frame(captures = x, npp.log = z, phaseNo = p))
-lines(x, y)
-
-
-
-# NPP -----
-z <- seq(min(fstdata$captures), max(fstdata$captures), length.out = 100)
-x <- seq(min(fstdata$npp.log), max(fstdata$npp.log), length.out = 100)
-p <- 'L1'
-y <- predict(m7, newdata = data.frame(captures = z, npp.log = x, phaseNo = p))
-
-plot(x, y, col = z, ylim = c(0,0.05))
-
-z <- 1
-y <- predict(m7, newdata = data.frame(captures = z, npp.log = x, phaseNo = p))
-lines(x, y, col = 'pink')
-
-
-
-z <- 5
-y <- predict(m7, newdata = data.frame(captures = z, npp.log = x, phaseNo = p))
-lines(x, y, col = 'orange')
-
-z <- 10
-y <- predict(m7, newdata = data.frame(captures = z, npp.log = x, phaseNo = p))
-lines(x, y, col = 'gold')
-
-z <- 15
-y <- predict(m7, newdata = data.frame(captures = z, npp.log = x, phaseNo = p))
-lines(x, y, col = 'lightgreen')
-
-z <- 20
-y <- predict(m7, newdata = data.frame(captures = z, npp.log = x, phaseNo = p))
-lines(x, y, col = 'green')
+am %>% mutate_if(is.numeric, round, 10) %>% 
+  mutate(Parameter = c('Captures', 'NPP (log-scale)', 'Residuals')) %>% 
+  relocate(Parameter) %>% 
+flextable() %>% 
+  autofit() %>% 
+ # align(j = 1, align = 'right') %>%
+#  align(j = 1, align = 'right', part = 'header') %>% 
+  border_remove() %>% 
+  bold(part = 'header') %>%
+  border_outer() %>% 
+  bg(bg = 'grey95', j = 1) %>% 
+  hline(part = 'header', border = fp_border(width = 3, col = 'grey70'))
+  
 
 
 

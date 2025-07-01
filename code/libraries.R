@@ -8,12 +8,13 @@
 
 
 library(SNPRelate, lib.loc = 'C:/Program Files/R/R-4.1.2/library/')
+library(dartR, lib.loc = 'C:/Program Files/R/R-4.1.2/library/')
 library(lubridate)
 library(tidyverse, lib.loc = 'C:/Program Files/R/R-4.1.2/library/')
 
 #library(lubridate, lib.loc = 'C:/Program Files/R/R-4.1.2/library/')
 #library(adegenet, lib.loc = 'C:/Program Files/R/R-4.1.2/library/')
-library(dartR)
+
 library(sf, lib.loc = 'C:/Program Files/R/R-4.1.2/library/')
 library(popkin)
 library(gplots)
@@ -22,7 +23,7 @@ library(gridExtra, lib.loc = 'C:/Program Files/R/R-4.1.2/library/')
 # library(rstudioapi)
 # library(tidyverse)
 # library(lubridate)
-library(raster)
+library(raster, lib.loc = 'C:/Program Files/R/R-4.1.2/library/')
 library(rasterVis)
 #library(parallel)
 library(rgdal, lib.loc = 'C:/Program Files/R/R-4.1.2/library/')
@@ -42,10 +43,11 @@ library(otuSummary,lib.loc = 'C:/Program Files/R/R-4.1.2/library/')
 
 
 library(flextable, lib.loc = 'C:/Program Files/R/R-4.1.2/library/')
-#library(officer, lib.loc = 'C:/Program Files/R/R-4.1.2/library/')
+library(officer, lib.loc = 'C:/Program Files/R/R-4.1.2/library/')
 library(sjPlot)
 # library(rasterVis,lib.loc = 'C:/Program Files/R/R-4.1.2/library/')
 # library(ggspatial,lib.loc = 'C:/Program Files/R/R-4.1.2/library/')
 # library(hierfstat, lib.loc = 'C:/Program Files/R/R-4.1.2/library/')
 
 library(scales)
+
