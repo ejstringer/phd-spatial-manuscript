@@ -6,14 +6,17 @@
 #.libPaths('C:/Program Files/R/R-4.1.2/library/')
 #.libPaths('C:/Users/s438134/AppData/Local/R/win-library/4.4')
 
-
+library(tidyverse, lib.loc = 'C:/Program Files/R/R-4.1.2/library/')
+library(igraph)
 library(SNPRelate, lib.loc = 'C:/Program Files/R/R-4.1.2/library/')
+
+library(ggplot2, lib.loc ='C:/Program Files/R/R-4.1.2/library/')
 library(dartR, lib.loc = 'C:/Program Files/R/R-4.1.2/library/')
 library(lubridate)
-library(tidyverse, lib.loc = 'C:/Program Files/R/R-4.1.2/library/')
+
 
 #library(lubridate, lib.loc = 'C:/Program Files/R/R-4.1.2/library/')
-#library(adegenet, lib.loc = 'C:/Program Files/R/R-4.1.2/library/')
+library(adegenet, lib.loc = 'C:/Program Files/R/R-4.1.2/library/')
 
 library(sf, lib.loc = 'C:/Program Files/R/R-4.1.2/library/')
 library(popkin)
@@ -49,5 +52,19 @@ library(sjPlot)
 # library(ggspatial,lib.loc = 'C:/Program Files/R/R-4.1.2/library/')
 # library(hierfstat, lib.loc = 'C:/Program Files/R/R-4.1.2/library/')
 
-library(scales)
+#library(scales)
 
+# detach_package <- function(pkg, character.only = FALSE)
+# {
+#   if(!character.only)
+#   {
+#     pkg <- deparse(substitute(pkg))
+#   }
+#   search_item <- paste("package", pkg, sep = ":")
+#   while(search_item %in% search())
+#   {
+#     detach(search_item, unload = TRUE, character.only = TRUE)
+#   }
+# }
+# 
+# detach_package(sjPlot)
