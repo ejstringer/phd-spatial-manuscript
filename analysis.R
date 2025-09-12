@@ -43,7 +43,8 @@ cn <- fstdata |>
 ## correlation ----------
 cn %>% 
   group_by(species) %>% 
-  summarise(cor = cor(captures, npp.log)) 
+  summarise(cor = cor(captures, npp.log)) %>% 
+  mutate(r = cor^2)
 
 ## models ---------------
 
@@ -369,16 +370,22 @@ sjPlot::tab_model(m7, m8, dv.labels = c('P. hermannsburgensis', 'S. youngsoni'),
 
 m5 <- (lm(fst ~ captures + npp.log, 
             data = filter(fstdata, species == "Pseudomys hermannsburgensis")))
+m5b <- (lm(fst ~ npp.log+captures, 
+          data = filter(fstdata, species == "Pseudomys hermannsburgensis")))
+
+
 m6 <- (lm(fst ~ captures + npp.log, data = filter(fstdata, species == "Sminthopsis youngsoni")))
 
-am <- anova(m5)
+am <- anova(m5b)
 anova(m6)
 
 
-am$`Pr(>F)` <- c('<0.001', '<0.001', NA)
+am$`Pr(>F)` <- ifelse(am$`Pr(>F)` < 0.001,'<0.001', 
+                      round(am$`Pr(>F)`, 4))
 
-am %>% mutate_if(is.numeric, round, 10) %>% 
-  mutate(Parameter = c('Captures', 'NPP (log-scale)', 'Residuals')) %>% 
+am %>% mutate_if(is.numeric, round, 4) %>% 
+  mutate(Parameter = rownames(.)) %>% 
+#  mutate(Parameter = c('Captures', 'NPP (log-scale)', 'Residuals')) %>% 
   relocate(Parameter) %>% 
 flextable() %>% 
   autofit() %>% 
@@ -388,7 +395,7 @@ flextable() %>%
   bold(part = 'header') %>%
   border_outer() %>% 
   bg(bg = 'grey95', j = 1) %>% 
-  hline(part = 'header', border = fp_border(width = 3, col = 'grey70'))
+  hline(part = 'header', border = fp_border_default(width = 3, col = 'grey70'))
   
 
 
