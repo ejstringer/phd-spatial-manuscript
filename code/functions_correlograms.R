@@ -41,15 +41,15 @@ em.ibd.period.correlog <- function(kin2, test = c("spearman", 'pearson')){
     kin_i <- filter(kin2, phaseNo == indx)
     g <- em.to_mat(kin_i, matname = 'gendist')
     d <- em.to_mat(kin_i, matname = 'km.log')
-    bks <- c(0.1,1,2.1,4.5,9.5, 20.1,42.5, 85) %>% log
+    bks <- c(0.09,1,2.1,4.5,9.5, 20.1,42.5, 85) %>% log
     
     man <- mantel(as.dist(d), as.dist(g))  
     
     
     mancorrelog <- mantel.correlog(D.eco = as.dist(g), D.geo = as.dist(d),
-                                   cutoff = FALSE, r.type = test,
+                                   cutoff = T, r.type = test,
                                    nperm = 10000,
-                                   break.pts = bks) 
+                                   break.pts = bks, progressive = T) 
     mancorrelog
     
     # summary(mancorrelog)

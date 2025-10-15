@@ -147,7 +147,7 @@ head(as.data.frame(fst_final))
 
 # correlograms ------------------------------------------------------------
 ibdDataAll <- lapply(c('herm', 'young'), 
-                     function(x) filter(individ, grepl(x, species),
+                     function(x) filter(individual_final, grepl(x, species),
                                         complete.cases(metres)))
 
 ## mantel correlog --------
@@ -155,11 +155,29 @@ system.time(ibdcorr <- lapply(ibdDataAll,
                               em.ibd.period.correlog, 
                               test = 'pearson')) # 24 mins
 ibdcorr_join <- do.call('bind_rows', ibdcorr)
+## by sex ----------------------
+df_index <- data.frame(i = 1:4, x = rep(c('herm', 'young'), each = 2),
+                       y = rep(c('m-m', 'f-f'), 2)) %>%  
+  split(., .$i)
 
+individual_final$phaseNo <- factor(individual_final$phaseNo, levels = periodID$phaseNo)
+
+#names(df_index) <- paste()
+ibdDatasex <- lapply(df_index, function(x) filter(individual_final, grepl(x$x, species),
+                                               sex_pairs %in% unlist(str_split(x$y, ',')),
+                                               complete.cases(metres)))
+
+
+
+## mantel correlog -------
+ibdcorrsexes <- lapply(ibdDatasex, em.ibd.period.correlog, test = 'pearson')
+
+ibdcorrsexes_join <- do.call('bind_rows', ibdcorrsexes)
 # save --------------------------------------------------------------------
 
 write.csv(individual_final, './output/individual_analysis.csv', row.names = F)
 write.csv(fst_final, './output/fst_analysis.csv', row.names = FALSE)
 
-write.csv(ibdcorr_join, './output/ibd_analysis.csv', row.names = FALSE)
+write.csv(ibdcorr_join, './output/ibd_analysis_change_corrlog_function.csv', row.names = FALSE)
+write.csv(ibdcorrsexes_join, './output/ibd_sex_analysis.csv', row.names = FALSE)
 
