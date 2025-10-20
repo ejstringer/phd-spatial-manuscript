@@ -4,6 +4,9 @@ em.fst <- function(Nm) 1/(4*Nm+1)
 em.Nm <- function(fst) (1/fst-1)/4
 
 em.N <- function(fst, m) (1/fst-1)/(4*m)
+em.m <- function(fst, N) (1/fst-1)/(4*N)
+
+
 
 fst <- c(0.01, 0.02, 0.1, 0.2)
 N <- c(25:100)
@@ -64,4 +67,99 @@ ggplot(fstph,aes(N, m, colour = phase))+
 
 
 AIC(lm(Nm ~ captures, data = fstph), lm(log(Nm) ~ captures,data = fstph))
+
+
+# t explore ---------------------------------------------------------------
+
+
+em.mRate <- function(fst, ne) (1/fst-1)/(4*ne)
+em.fst <- function(Nm) 1/(4*Nm+1)
+em.Nm <- function(fst) (1/fst-1)/4
+
+em.N <- function(fst, m) (1/fst-1)/(4*m)
+
+em.fstiso <- function(ne, t = 2) 1 - (1 - 1 / (2 * ne))^t
+
+d<-fstdata %>% 
+  group_by(species, phaseNo, phase, captures, npp.log, npp) %>% 
+  summarise(fst = mean(fst),
+            Nm = em.Nm(fst)) %>%
+  mutate(mSrgt = Nm/(captures)) %>% 
+  # filter(phase != 'stable') %>% 
+  arrange(phase)
+
+e <- d %>% filter(grepl('herm', species))
+
+est.fst <- apply(data.frame(n = e$captures[4:9],
+                            t = c(rep(1,3), 2, 2, 2)), 1,
+                 function(x) em.fstiso(x[1], x[2]))
+
+
+est.fst2 <- est.fst^2
+lm(e$fst[4:9]~ est.fst) %>% summary
+
+plot(e$fst[4:9]~ est.fst, col = e$phase[4:9], pch = 16)
+
+
+
+em.equal <- function(m, ne) log(1/2)/(log(((1-m)^2)*(1-(1/(2*ne)))))
+
+# Define parameters
+m <- 0.01    # Migration rate
+N <- 1000    # Population size
+
+em.equal2 <- function(m, N){
+  
+  # Calculate the expression
+numerator <- log(1 / 2)
+denominator <- log((1 - m)^2 * (1 - 1 / (2 * N)))
+result <- numerator / denominator
+
+result
+}
+m.mice <- seq(0.02,0.5,0.02)
+data.frame(ne = rep(c(10,25,100,250), each = length(m.mice)),
+           m = m.mice) %>% 
+  mutate(tte = em.equal2(m, ne)) %>% 
+  ggplot(aes(m, tte, colour = ne, group = ne))+
+  geom_point()+
+  geom_smooth(se = F)+
+  theme_classic()+
+  geom_hline(yintercept = c(1,4), lty = 2, colour = 'grey')
+
+
+em.equal(0.01, 250)
+
+em.equal2(0.0001, 100)
+em.equal2(0.0001, 10000)
+
+em.equal2(0.1, 10000)
+em.equal2(0.1, 100)
+
+em.equal2(0.1, 10000)
+em.equal2(0.1, 100)
+
+em.equal2(0.8, 100)
+em.equal2(0.1, 100)
+
+em.equal2(0.1, 1000)
+em.equal2(0.3, 100)
+
+
+
+
+e %>% 
+  mutate(tte = em.equal())
+
+
+
+
+
+e %>% 
+  mutate(m = em.mRate(fst, captures),
+         m2 = (1-fst)/(4*captures*fst))
+em.mRate()
+
+
+
 

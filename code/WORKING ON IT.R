@@ -1,5 +1,7 @@
 em.Nm <- function(fst) (1/fst-1)/4
 
+em.m <- function()
+
 d<-fstdata %>% 
   group_by(species, phaseNo, phase, captures, npp.log, npp) %>% 
   summarise(fst = mean(fst),
