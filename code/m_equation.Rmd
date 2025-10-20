@@ -1,0 +1,24 @@
+---
+title: "Untitled"
+author: "Emily Stringer"
+date: "2025-10-18"
+output:
+  word_document: default
+  html_document: default
+---
+
+
+# why dis not work
+
+$$
+\frac{\left(\frac{1}{F_{ST}} - 1\right)}{4 \cdot N_e}
+$$
+
+$\frac{1 - F_{ST}}{4 \cdot N_e \cdot F_{ST}}$
+
+
+$F_{ST} = 1 - \left(1 - \frac{1}{2N_e}\right)^t$
+
+$\frac{\ln\left(\frac{1}{2}\right)}{\ln\left[(1 - m)^2 \cdot \left(1 - \frac{1}{2N}\right)\right]}$
+
+
