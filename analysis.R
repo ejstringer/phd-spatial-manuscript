@@ -23,7 +23,7 @@ fstdata <- read.csv('./output/fst_analysis.csv') %>%
 
 ind <- read.csv('./output/individual_analysis.csv') 
 
-ibdcorr <- read.csv('./output/ibd_analysis.csv') %>% 
+ibdcorr <- read.csv('./output/ibd_analysis_change_corrlog_function.csv') %>% 
   mutate(phase = case_when(
     phase == 'L' ~ 'low',
     phase == 'D' ~ 'decrease',

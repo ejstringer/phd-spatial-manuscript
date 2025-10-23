@@ -47,9 +47,9 @@ em.ibd.period.correlog <- function(kin2, test = c("spearman", 'pearson')){
     
     
     mancorrelog <- mantel.correlog(D.eco = as.dist(g), D.geo = as.dist(d),
-                                   cutoff = T, r.type = test,
+                                   cutoff = F, r.type = test,
                                    nperm = 10000,
-                                   break.pts = bks, progressive = T) 
+                                   break.pts = bks) 
     mancorrelog
     
     # summary(mancorrelog)

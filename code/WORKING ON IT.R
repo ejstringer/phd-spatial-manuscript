@@ -174,6 +174,7 @@ fstmn <- grid.arrange(nmplot,nplot,
 ggsave(filename = './figures/caps_m_fst_spp.png', plot = fstmn,
        units = "cm", width = 16, height = 21, dpi = 600)
 
+## models ---------
 fstdata2$x <- fstdata2$captures
 mn <-  lmer(fst ~ x * phase + (1|phaseNo), data = filter(fstdata2,
                                                          species2 == 'ph')) 
@@ -410,7 +411,7 @@ ibdcorr %>%
   filter(complete.cases(Pr.corrected.)) -> mantel.results2 
 
  #ibdcorrsex%>% 
-ibdcorrsexes_join %>% 
+ibdcorrsex %>% 
 mutate(
     sig = Pr.corrected. < 0.05 & Mantel.cor > 0,
     #sig = Pr.Mantel. < 0.05
@@ -472,8 +473,8 @@ mantel.plot.sex
 
 # mantel ------------------------------------------------------------------
 
-ibdcorrsexes_join %>% 
-  bind_rows(ibdcorr_join) %>% 
+ibdcorrsex %>% 
+  bind_rows(ibdcorr) %>% 
   filter(dist < 1) %>% 
   mutate(Mantel.cor = ifelse(Mantel.cor < 0, 0,Mantel.cor)) %>% 
   mutate(sex_pairs = ifelse(grepl('all', sex_pairs), 'All', sex_pairs)) %>% 
@@ -515,3 +516,99 @@ ibdcorrsexes_join %>%
 ggsave('./figures/fig_r_npp_sexes.png', plot = fig_r_npp_sexes2,
        units = "cm", width = 14, height = 9, dpi = 600)
 
+
+
+
+# sex models --------------------------------------------------------------
+## <1km
+phsex <- ind %>% filter(sex_pairs %in% c('f-f', 'm-m'),
+                        species2== 'ph', km <= 1) %>% 
+  mutate(phase = factor(phase, levels = c('low', 'increase', 'decrease')))
+
+sysex <- ind %>% filter(sex_pairs %in% c('f-f', 'm-m'),
+                        species2== 'sy', km <= 1)
+
+m<-lmer(euclidean ~ km * sex_pairs *  phase + (1|phaseNo), data = phsex)
+
+m2 <-lmer(euclidean ~ km * sex_pairs + (1|phaseNo), data = sysex)
+
+anova(m)
+anova(m2)
+
+summary(m)
+
+anova(lm(iris$Petal.Length ~ iris$Sepal.Length + iris$Species))
+#https://aosmith.rbind.io/2019/03/25/getting-started-with-emmeans/
+library(emmeans)
+
+emmeans(m2, specs = pairwise ~ km:sex_pairs)
+
+differences <- emmeans(m, specs = pairwise ~ km:sex_pairs:phase)
+
+emmeans(m, specs = pairwise ~ sex_pairs:phase)
+emmeans(m, specs = pairwise ~ km:sex_pairs)
+
+emmeans(m, specs = pairwise ~ km:phase)
+
+ggplot(filter(ind, km <= 5), aes(km, kinship, colour = npp))+
+  geom_point()+
+  facet_wrap(~species, scale = 'free_x')
+
+
+diffcontrasts <- as.data.frame(differences$contrasts) %>% 
+  mutate(km.mean = 0.25,
+         contrast = gsub('km0.253353317056273', '', contrast),
+         contrast = gsub('\\(', '', contrast),
+         contrast = gsub('\\)', '', contrast)) %>% 
+  separate(contrast, into = c('con1', 'con2'),sep = ' - ') %>% 
+  mutate(p.value = ifelse(p.value < 0.001, '<0.001',
+                          sprintf("%.3f",round(p.value, 3))),
+         df = '>3000') %>% 
+  mutate_if(is.numeric, round, 2) %>% 
+  dplyr::select(-df) %>% 
+  mutate_all(trimws) %>% 
+  separate(con1, into = c('sex1', 'phase1'), sep = ' ')%>% 
+  separate(con2, into = c('sex2', 'phase2'), sep = ' ') %>% 
+  mutate(sex = ifelse(sex1 == sex2, sex1, 'xdiff'),
+         contrast = paste0('(', sex1, ' ', phase1, ')', ' - ',
+                           '(', sex2, ' ', phase2, ')')) %>% 
+  relocate(sex2, .after = sex1) %>% 
+  arrange(sex, sex1) %>% 
+  mutate(sex = ifelse(sex == 'xdiff', 'f-f:m-m', sex),
+         estimate = as.numeric(estimate),
+         z.ratio = as.numeric(z.ratio),
+         contrast = ifelse(sex == 'f-f', paste0('(', phase1, ' - ', phase2,')'),
+                           contrast),
+         contrast = ifelse(sex == 'm-m', paste0('(', phase1, ' - ', phase2,')'),
+                           contrast),
+         contrast = ifelse(sex1 == 'm-m' & sex2 == 'f-f',
+                           paste0('(', sex2, ' ', phase2, ')', ' - ',
+                                  '(', sex1, ' ', phase1, ')'), contrast),
+         estimate = ifelse(sex1 == 'm-m' & sex2 == 'f-f', -estimate, estimate),
+         z.ratio = ifelse(sex1 == 'm-m' & sex2 == 'f-f', -z.ratio, z.ratio))%>% 
+  dplyr::select(km.mean,sex,contrast, estimate, SE, z.ratio, p.value) %>% 
+  rename(sex.comparison = sex)
+
+
+diffcontrasts %>% 
+  mutate(km.mean = ifelse(duplicated(km.mean), NA, km.mean),
+         sex.comparison = ifelse(duplicated(sex.comparison), NA, sex.comparison)) %>% 
+  flextable() %>% 
+  autofit() %>% 
+  theme_alafoli() %>% 
+  bold(j = 3:7, i = which(abs(diffcontrasts$z.ratio) >2.9)) %>% 
+  hline(j = -1, i = c(3,6), border= fp_border_default(width = 1.5, color = 'grey', style = 'dashed'))
+
+
+
+## ibd ------------------
+xibdcorrsex <- filter(ibdcorrsex, dist <= 1)
+
+mod_r_ph <- lm(Mantel.cor ~ log(npp) + sex_pairs, #weights = (n.dist),
+               data = filter(xibdcorrsex, grepl('herm', species))) 
+mod_r_sy <- lm(Mantel.cor ~ log(npp) + sex_pairs, 
+               data = filter(xibdcorrsex, grepl('young', species)))
+
+sjPlot::tab_model(mod_r_ph, mod_r_sy)
+
+MuMIn::r.squaredGLMM(mod_r_ph)
