@@ -5,344 +5,6 @@ source('./code/libraries.R')
 source('./code/functions_data-tables.R')
 source('./code/functions_genetic-data-creation.R')
 
-phaseCol <- c(
-  increase = terrain.colors(10)[1],
-  decrease = terrain.colors(10)[4],
-  low = terrain.colors(10)[7],
-  stable = 'grey70')
-
-nppCol <- rev(terrain.colors(225)[c(seq(1,80,2),
-                                    seq(81,225,10))])[-1]
-
-fstdata <- read.csv('./output/fst_analysis.csv') %>% 
-  mutate(phaseNo = factor(phaseNo, levels = paste0(rep(c('L', 'I', 'D'), 3),
-                                                   rep(1:3, each = 3))),
-         phase = ifelse(grepl('young', species), 'stable', phase),
-         ph = grepl('herm', species),
-         phase = factor(phase, levels = c('increase', 'decrease','low', 'stable')))
-
-ind <- read.csv('./output/individual_analysis.csv') 
-
-ibdcorr <- read.csv('./output/ibd_analysis_change_corrlog_function.csv') %>% 
-  mutate(phase = case_when(
-    phase == 'L' ~ 'low',
-    phase == 'D' ~ 'decrease',
-    phase == 'I' ~ 'increase'),
-  phase = ifelse(grepl('young', species), 'stable', phase)) %>% 
-  left_join(unique(ind[,c('phaseNo', 'species', 'captures')]))
-
-
-ibdcorrsex <- read.csv('./output/ibd_sex_analysis.csv') %>% 
-  mutate(phase = case_when(
-    phase == 'L' ~ 'low',
-    phase == 'D' ~ 'decrease',
-    phase == 'I' ~ 'increase'),
-    phase = ifelse(grepl('young', species), 'stable', phase)) %>% 
-  left_join(unique(ind[,c('phaseNo', 'species', 'captures')]))
-# npp ~ captures ----------------------------------------------------------
-
-## data -----------------
-cn <- fstdata |>
-  mutate(ph = (grepl('herm', species))) |> 
-  dplyr::select(species,ph, phaseNo, npp.log,npp, phase, captures) |>
-  unique() |>
-  glimpse() %>% 
-  arrange(species)
-## correlation ----------
-cn %>% 
-  group_by(species) %>% 
-  summarise(cor = cor(captures, npp.log)) %>% 
-  mutate(r = cor^2)
-
-## models ---------------
-
-m_parameters_ph <- (lm(captures ~ npp.log, data = filter(cn, species == "Pseudomys hermannsburgensis")))
-m_parameters_sy <-(lm(captures ~ npp.log, data = filter(cn, species == "Sminthopsis youngsoni")))
-
-summary(m_parameters_ph)
-summary(m_parameters_sy)
-
-## plots ----------------
-figcor <- ggplot(cn, aes(y = captures, x = npp, group = species)) + 
-  stat_smooth(data = filter(cn, ph),
-              method = lm, se = F, colour = 'grey75', aes(group = phase),
-              lwd = 2) +
-  geom_point(aes(fill = phase), size = 5, pch = 21) +
-  stat_smooth(method = lm, se = F, colour = 'grey30', lty = 1) +
-  facet_wrap(~species, ncol = 1, scale = "free_x") +
-  theme_bw()+
-  scale_x_log10()+
-  theme(panel.grid = element_blank(),
-        strip.background = element_blank(),
-        legend.position = 'inside',
-        legend.position.inside = c(0.78,0.3),
-        legend.key.size = unit(0.5, units = 'cm'),
-        legend.background = element_rect(colour = 'grey'),
-        axis.title = element_text(size = 13),
-        strip.text.x = element_text(face = 'italic', size = 12))+
-  xlab(expression('Net primary productivity '[log-scale]))+
-  scale_fill_manual(values = phaseCol,
-                    labels = str_to_title(names(phaseCol)),
-                    name = 'Population phase')+
-  ylab('Mean captures'); figcor
-
-
-# cor plot ----------------------------------------------------------------
-
-
-ggsave('./figures/caps_npp_correlation.png', plot = figcor,
-       units = "cm", width = 10, height = 14, dpi = 600)
-
-# fst npp captures --------------------------------------------------------
-
-# fst by captures
-# mean fst
-mfc <- fstdata |>
-  group_by(species, phaseNo, phase, captures) |>
-  summarise(mean.fst = mean(fst)) |>
-  glimpse()
-
-figCaps <- ggplot(fstdata, aes(y = fst, x = captures, fill = phase, group = species)) +
-  stat_smooth(data = filter(fstdata, ph),
-              method = lm, se = F, colour = 'grey75', aes(group = phase),
-              lwd = 2) +
-  geom_point(aes(colour = phase, fill = phase), size = 3, alpha = 0.2) +
-  geom_point(data = mfc, aes(y = mean.fst), colour = 'black', 
-             shape = 23, size = 4) +
-  stat_smooth(method = lm, se = F, colour = 'grey30') +
-  facet_wrap(~ species, ncol = 1, scale = "free_x") +
-  theme_bw()+
-  xlab('Mean captures')+
-  ylab(expression(italic('F')[ST]))+
-  theme(panel.grid = element_blank(),
-        strip.background = element_blank(),
-        legend.position = 'none',#c(0.85,0.73),
-        legend.background = element_rect(colour = 'grey'),
-        axis.title = element_text(size = 13),
-        strip.text.x = element_text(face = 'italic', size = 12))+
-  scale_fill_manual(values = phaseCol,
-                    name = 'Population phase',
-                    labels = str_to_title(names(phaseCol)))+
-  scale_colour_manual(values = phaseCol,
-                      labels = str_to_title(names(phaseCol)),
-                      name = 'Population phase');figCaps
-
-
-# fst by npp
-# mean fst
-mfn <- fstdata |>
-  group_by(species, phaseNo, phase, npp.log, npp) |>
-  summarise(mean.fst = mean(fst),
-            x = npp.log) |>
-  glimpse()
-
-figNPP <- ggplot(fstdata, aes(y = fst, x = npp, fill = phase)) +
-  stat_smooth(data = filter(fstdata, ph), show.legend = F,
-              method = lm, se = F, colour = 'grey75', aes(group = phase),
-              lwd = 2) +
-  geom_point(aes(colour = phase, fill = phase), size = 3, show.legend = F,
-             alpha = 0.2) +
-  geom_point(data = mfn, aes(y = mean.fst), 
-             colour = 'black', shape = 23, size = 4) +
-  stat_smooth(method = lm, se = F, colour = 'grey30', show.legend = F,
-              aes(group = species)) +
-  facet_wrap(~ species, ncol = 1, scale = "free_x") +
-  scale_colour_discrete(na.translate = F)+
-  theme_bw()+
-  scale_x_log10()+
-  xlab(expression('Net primary productivity '[log-scale]))+
-  ylab(expression(italic('F')[ST]))+
-  theme(panel.grid = element_blank(),
-        strip.background = element_blank(),
-        legend.position = c(0.83,0.28),
-        legend.background = element_rect(colour = 'grey'),
-        axis.title = element_text(size = 13),
-        strip.text.x = element_text(face = 'italic', size = 12))+
-  scale_fill_manual(values = phaseCol,
-                    name = 'Population phase', na.translate = FALSE,
-                    labels = str_to_title(names(phaseCol)))+
-  scale_colour_manual(values = phaseCol,
-                      labels = str_to_title(names(phaseCol)),
-                      name = 'Population phase');figNPP
-
-
-# FST arrange plot --------
-
-figCapsNPP <- grid.arrange(figCaps, 
-                           figNPP + theme(legend.position = c(0.7,0.3),
-                                          legend.key.size = unit(0.5, 
-                                                                 units = 'cm')),
-                           ncol = 2)
-
-ggsave(filename = './figures/caps_npp_fst_spp.png', figCapsNPP,
-       units = "cm", width = 16, height = 14, dpi = 600)
-
-# models -----------------
-
-#https://stats.stackexchange.com/questions/570148/is-there-anything-like-a-two-way-anova-but-for-continuous-independent-variables
-m_fst_anova_ph <- anova(lm(fst ~ captures + npp.log,
-                           data = filter(fstdata,
-                                         species == "Pseudomys hermannsburgensis")))
-
-m_fst_anova_sy <- anova(lm(fst ~ captures + npp.log,
-                           data = filter(fstdata,
-                                         species == "Sminthopsis youngsoni")))
-
-m_fst_anova_ph
-m_fst_anova_sy
-
-m_fst_ph <- (lmer(fst ~ captures + npp.log + (1|phaseNo),
-            data = filter(fstdata,
-                          species == "Pseudomys hermannsburgensis")))
-
-m_fst_sy <- (lmer(fst ~ captures + npp.log + (1|phaseNo),
-                           data = filter(fstdata,
-                                         species == "Sminthopsis youngsoni")))
-
-summary(m_fst_ph)
-summary(m_fst_sy)
-
-
-# individual --------------------------------------------------------------
-
-plot( unique(ind[ind$species2 == 'ph',c('npp.log', 'captures', 'phaseNo')])$npp.log,
-      predict(m_fst_ph, newdata = unique(ind[ind$species2 == 'ph',c('npp.log', 'captures', 'phaseNo')])))
-
-# correlograms ------------------------------------------------------------
-
-mantel.results <- ibdcorr %>% 
-  mutate(
-    sig = Pr.corrected. < 0.05 & Mantel.cor > 0,
-    d.class = exp(breaksto)
-    #sig = Pr.Mantel. < 0.05
-  ) %>% 
-  filter(complete.cases(Pr.corrected.))  
-
-xibdcorr <- ibdcorr %>% 
-  filter(class.index < 0) %>% 
-  mutate(Mantel.cor = ifelse(Mantel.cor < 0, 0, 
-                             Mantel.cor)) 
-
-
-
-## plot --------------------------------------------------------------------
-
-figCorrelogram <- mantel.results %>%  
-  mutate(Mantel.cor = ifelse(Mantel.cor < 0, 0,
-                             Mantel.cor)) %>%
-  ggplot(aes(exp(breaksto), Mantel.cor, 
-             fill= sig, colour = npp,
-             group = phaseNo))+
-  geom_hline(yintercept = 0, #size = 1,
-             colour = 'grey', 
-             linetype = 'dashed')+
-  geom_line(linewidth = 0.75)+
-  geom_point( shape = 21, size = 2, colour = 'black')+
-  
-  scale_x_log10(breaks = unique(exp(mantel.results$breaksto)))+
-   scale_fill_manual(values = c('white', 'pink'),
-                    labels = c('No IBD', 'IBD'),
-                    name = NULL)+
-  scale_colour_gradientn(colours = nppCol,
-                         na.value = 'white',
-                         name = "NPP")+
-  theme_bw()+
-  theme(panel.grid = element_blank(),
-        strip.background = element_blank(),
-        strip.text.x = element_text(face = 'italic', size = 10),
-        strip.text.y = element_text(size = 12))+
-  xlab('Distance classes (km)')+
-  ylab(expression(italic('r')))+
-  facet_grid(~species, scale = 'free_x');figCorrelogram
-
-
-fig_r_captures <- xibdcorr %>% 
-  ggplot(aes(captures, Mantel.cor, fill = phase))+
-  stat_smooth(data = filter(xibdcorr, grepl('herm', species)), show.legend = F,
-              method = lm, se = F, colour = 'grey75', aes(group = phase),
-              lwd = 2) +
-  scale_shape_manual(values = c(24,22))+
-  geom_point(pch = 21, #aes(pch = sex_pairs), 
-             size = 3,
-             colour = 'black',
-             #alpha = 0.5
-  )+
-  theme_bw()+
-  guides(shape = 'none')+
-  geom_smooth(method = 'lm', se = F, show.legend = F, aes(colour = species,
-                                                          group = species),
-              colour = 'grey30')+
-  facet_grid(~species, scale = 'free') +
-  ylab('mantel correlation (<1km)')+
-  theme_bw()+
-  theme(panel.grid = element_blank(),
-        legend.position = c(0.89,0.65),
-        legend.background = element_rect(colour = 'grey'),
-        axis.title = element_text(size = 11),
-        legend.key.size = unit(0.5, units = 'cm'),
-        strip.text.x = element_text(face = 'italic', size = 11),
-        strip.text.y = element_text(size = 12),
-        strip.background = element_blank())+
-  scale_fill_manual(values = phaseCol,
-                    name = 'Population phase', na.translate = FALSE,
-                    labels = str_to_title(names(phaseCol)))+
-  scale_colour_manual(values = phaseCol,
-                      labels = str_to_title(names(phaseCol)),
-                      name = 'Population phase')+
-  ylab(expression(italic("r")*' (distance class 0 - 1km)'))+
-  xlab(expression('Mean captures')); fig_r_captures
-
-fig_r_npp <- xibdcorr %>% 
-  ggplot(aes(npp, Mantel.cor, fill = phase))+
-  stat_smooth(data = filter(xibdcorr, grepl('herm', species)), show.legend = F,
-              method = lm, se = F, colour = 'grey75', aes(group = phase),
-              lwd = 2) +
-  scale_shape_manual(values = c(24,22))+
-  geom_point(pch = 21, #aes(pch = sex_pairs), 
-             size = 3,
-             colour = 'black',
-             #alpha = 0.5
-  )+
-  theme_bw()+
-  guides(shape = 'none')+
-  geom_smooth(method = 'lm', se = F, show.legend = F, aes(colour = species,
-                                                          group = species),
-              colour = 'grey30')+
-  scale_x_continuous(trans = scales::log_trans(), 
-                     breaks = 8 * 2^seq(0,5,1))+
-  facet_grid(~species) +
-  ylab('mantel correlation (<1km)')+
-  theme_bw()+
-  theme(panel.grid = element_blank(),
-        legend.position = c(0.885,0.63),
-        legend.background = element_rect(colour = 'grey'),
-        axis.title = element_text(size = 11),
-        legend.key.size = unit(0.5, units = 'cm'),
-        strip.text.x = element_text(face = 'italic', size = 11),
-        strip.text.y = element_text(size = 12),
-        strip.background = element_blank())+
-  scale_fill_manual(values = phaseCol,
-                    name = 'Population phase', na.translate = FALSE,
-                    labels = str_to_title(names(phaseCol)))+
-  scale_colour_manual(values = phaseCol,
-                      labels = str_to_title(names(phaseCol)),
-                      name = 'Population phase')+
-  ylab(expression(italic("r")*' (distance class 0 - 1km)'))+
-  xlab(expression('Net primary productivity '[log-scale])); fig_r_npp
-
-
-# r arrange plot ----------------------------------------------------------
-
-r_plot <- grid.arrange(figCorrelogram,
-             fig_r_captures+theme(legend.position = 'none'),
-             fig_r_npp + theme(legend.title = element_text(size = 10), 
-                               legend.text = element_text(size = 9)))
-
-ggsave(filename = './figures/caps_npp_r_spp.png',r_plot,
-       units = "cm", width = 16, height = 19, dpi = 600)
-
-# flextables --------------------------------------------------------------
-
 em.coef.models <-function(m, spp.ph = T, modelname = 'Interaction'){
   
   summary(m)$coefficients %>% 
@@ -352,158 +14,21 @@ em.coef.models <-function(m, spp.ph = T, modelname = 'Interaction'){
            t = qt(0.975, df),
            me = t*`Std. Error`,
            lower = round(Estimate - me, 3),
-           upper = round(Estimate + me, 3),
+           upper = round(Estimate + me, 4),
            confidence = paste0(round(Estimate,3), ' (',
                                lower, ' - ', upper, ')'),
            Parameter = rownames(.),
            #Species = ifelse(duplicated(Species), NA, Species),
            sig = `Pr(>|t|)` < 0.05,
-           R2 = round(MuMIn::r.squaredGLMM(m)[2], 2),
-           R2 = ifelse(duplicated(R2), NA, R2),
+           R2 = round(MuMIn::r.squaredGLMM(m)[1], 3),
+         #  R2 = ifelse(duplicated(R2), NA, R2),
            model = modelname,
-           Model = ifelse(duplicated(model), NA, model)) %>% 
+           Model = model#ifelse(duplicated(model), NA, model)
+           ) %>% 
     dplyr::select(Species, Model, Parameter, confidence, R2, sig)%>% 
     rename(`Estimate (95% CI)` = confidence)
 }
 
-
-# multiple regression ----
-m7 <- (lmer(fst ~ captures + npp.log + (1|phaseNo), 
-            data = filter(fstdata, species == "Pseudomys hermannsburgensis")))
-m8 <- (lmer(fst ~ captures + npp.log + (1|phaseNo), data = filter(fstdata, species == "Sminthopsis youngsoni")))
-anova(m7)
-sjPlot::tab_model(m7, m8, dv.labels = c('P. hermannsburgensis', 'S. youngsoni'),
-                  title = 'Fst', df.method = "satterthwaite",
-                  digits = 3,collapse.ci = T)
-
-m5 <- (lm(fst ~ captures + npp.log, 
-            data = filter(fstdata, species == "Pseudomys hermannsburgensis")))
-m5b <- (lm(fst ~ npp.log+captures, 
-          data = filter(fstdata, species == "Pseudomys hermannsburgensis")))
-
-m5sy <- (lm(fst ~ captures + npp.log, 
-          data = filter(fstdata, species == "Sminthopsis youngsoni")))
-m5bsy <- (lm(fst ~ npp.log+captures, 
-           data = filter(fstdata, species == "Sminthopsis youngsoni")))
-
-
-m6 <- (lm(fst ~ captures + npp.log, data = filter(fstdata, species == "Sminthopsis youngsoni")))
-
-am <- anova(m5)
-anova(m6)
-am2 <- anova(m5b)
-
-rbind(am, am2) %>% as.data.frame %>% 
-  mutate(Pr = ifelse(`Pr(>F)` < 0.001,'<0.001', 
-                     round(`Pr(>F)`, 4)),
-         anova = rep(paste0('captures', 1:2), c(nrow(am), nrow(am2))),
-         parameter = rownames(.),
-         parameter = sub('1', '', parameter)) %>% 
-  rename(sumsq = `Sum Sq`) %>% 
-  dplyr::select(anova, parameter, sumsq) %>% 
-  filter(parameter != 'Residuals') %>% 
-  pivot_wider(names_from = anova, values_from = sumsq)
-
-am$`Pr(>F)` <- ifelse(am$`Pr(>F)` < 0.001,'<0.001', 
-                      round(am$`Pr(>F)`, 4))
-
-am %>% mutate_if(is.numeric, round, 4) %>% 
-  mutate(Parameter = rownames(.)) %>% 
-#  mutate(Parameter = c('Captures', 'NPP (log-scale)', 'Residuals')) %>% 
-  relocate(Parameter) %>% 
-  flextable() %>% 
-  autofit() %>% 
-  # align(j = 1, align = 'right') %>%
-  #  align(j = 1, align = 'right', part = 'header') %>% 
-  border_remove() %>% 
-  bold(part = 'header') %>%
-  border_outer() %>% 
-  bg(bg = 'grey95', j = 1) %>% 
-  hline(part = 'header', border = fp_border_default(width = 3, col = 'grey70'))
-
-
-  rbind(am, am2, anova(m5sy), anova(m5bsy)) %>% as.data.frame %>% 
-  mutate(pvalue = ifelse(`Pr(>F)` < 0.001,'<0.001', 
-                     round(`Pr(>F)`, 4)),
-         anova = rep(c(1:2,1:2), each = 3),
-         parameter = rownames(.),
-         parameter = sub('[[:digit:]]', '', parameter),
-         species = rep(c('P. hermans', 'S. young'),each = 6),
-         `F value` = round(`F value`, 1)) %>% 
-    dplyr::select(-`Pr(>F)`) %>% 
-    relocate(species, anova, parameter) %>% 
-    mutate_if(is.numeric, round, 4) %>% 
-    mutate(anova = ifelse(duplicated(paste(anova, species)), NA, anova),
-           species = ifelse(duplicated(species), NA, species)) %>% 
-flextable() %>% 
-  autofit() %>% 
- # align(j = 1, align = 'right') %>%
-#  align(j = 1, align = 'right', part = 'header') %>% 
-  border_remove() %>% 
-  bold(part = 'header') %>%
-  border_outer() %>% 
-  bg(bg = 'grey95', j = 1) %>%
-    align(j = 3, align = 'right') %>% 
-   # bg(bg = 'grey99', j = 2:3) %>%
-    hline(i = seq(3, 9,3), j = -1,
-          border = fp_border_default(width = 1, col = 'grey70')) %>% 
-  hline(part = 'header', border = fp_border_default(width = 3, col = 'grey70')) %>% 
-    hline(i = 6, border = fp_border_default(width = 2, col = 'grey70'))
-  
-
-em.mRate(0.1, 20)
-
-
-em.mRate <- function(fst, ne) (1/fst-1)/(4*ne)
-em.fst <- function(Nm) 1/(4*Nm+1)
-em.Nm <- function(fst) (1/fst-1)/4
-em.mRate(0.1,100)
-em.Nm(0.1)
-em.fst(100*0.0225)
-em.Nm(0.18)
-em.Nm(0.08)
-
-
-# lmer table --------------------------------------------------------------
-
-modeltbsx <- rbind(em.coef.models(m7, T,'P. hermann'),
-                   em.coef.models(m8, F, 'S. youngsoni')) %>% 
-  dplyr::select(-Model) %>% 
-  mutate(Species = ifelse(duplicated(Species), NA, Species))
-mtb <- modeltbsx
-modeltbsx %>% 
-  dplyr::select(-sig) %>% 
-  flextable() %>% 
-  bold(part = 'header') %>%
-  italic(j = 1) %>% 
- # italic(part = 'header', j = 2) %>% 
-  border_remove() %>%  
-  bold(j = 3, i = which(mtb$sig)) %>% 
-  autofit() %>%
-  width(j = 3, width = 5, unit = 'cm') %>% 
-  hline(i = c(nrow(mtb)),
-        border = fp_border(color = "grey40", width = 3)) %>% 
-  hline(part = 'header',
-        border = fp_border(color = "grey40", width = 2)) %>% 
-  hline(i = which(mtb$Species == 'S. youngsoni')-1,
-        border = fp_border(color = "grey60",
-                           width = 2, 
-                           style = 'dashed')) %>% 
-  compose(
-    part = "body", j = 2, i = grep('Intercept', mtb$Parameter),
-    value = as_paragraph(('Intercept'))) %>% 
-  compose(
-    part = "body", j = 2, i = grep('cap', mtb$Parameter),
-    value = as_paragraph(('Captures'))) %>% 
-  compose(
-    part = "header", j = 4,
-    value = as_paragraph(('R'), as_sup('2'))) %>% 
-  compose(
-    part = "body", j = 2, i = grep('log', mtb$Parameter),
-    value = as_paragraph(('log'), as_sub('e'), ('NPP'))) -> fxtb_r_npp;fxtb_r_npp
-
-
-# ibd models --------------------------------------------------------------
 em.coef.models2 <-function(m, spp.ph = T, modelname = 'Interaction'){
   
   df1 <- summary(m)$coefficients %>% 
@@ -528,6 +53,493 @@ em.coef.models2 <-function(m, spp.ph = T, modelname = 'Interaction'){
     dplyr::select(Species, Model, Parameter, confidence, R2, sig)%>% 
     rename(`Estimate (95% CI)` = confidence)
 }
+
+
+phaseCol <- c(
+  increase = terrain.colors(10)[1],
+  decrease = terrain.colors(10)[4],
+  low = terrain.colors(10)[7],
+  stable = 'grey70')
+
+nppCol <- rev(terrain.colors(225)[c(seq(1,80,2),
+                                    seq(81,225,10))])[-1]
+
+## fst ---------------
+fstdata_NNm <- read.csv('./output/fst_analysis.csv') %>% 
+  mutate(phaseNo = factor(phaseNo, levels = paste0(rep(c('L', 'I', 'D'), 3),
+                                                   rep(1:3, each = 3))),
+         phase = ifelse(grepl('young', species), 'stable', phase),
+         ph = grepl('herm', species),
+         phase = factor(phase, levels = c('increase', 'decrease','low', 'stable')))
+
+em.Nm <- function(fst) (1/fst-1)/4
+mfm <- fstdata_NNm |>
+  group_by(species, phaseNo, phase, captures) |>
+  summarise(mean.fst = mean(fst)) |>
+  mutate(#mean.fst = ifelse(mean.fst == 0, 0.0001, mean.fst),
+         Nm = em.Nm(mean.fst),
+         mSrgt = Nm/(captures))|>
+  glimpse()
+
+mfn <- fstdata_NNm |>
+  group_by(species, phaseNo, phase, npp.log, npp) |>
+  summarise(mean.fst = mean(fst))
+
+fstdata <- left_join(fstdata_NNm, mfm) %>%  filter(!is.infinite(mSrgt))
+
+meandata <- fstdata |>
+  group_by(species, phaseNo, phase, npp.log, captures, npp, mSrgt) |>
+  summarise(mean.fst = mean(fst))
+
+## ind ---------------
+ind <- read.csv('./output/individual_analysis.csv') 
+
+ibdcorr <- read.csv('./output/ibd_analysis_change_corrlog_function.csv') %>% 
+  mutate(phase = case_when(
+    phase == 'L' ~ 'low',
+    phase == 'D' ~ 'decrease',
+    phase == 'I' ~ 'increase'),
+  phase = ifelse(grepl('young', species), 'stable', phase)) %>% 
+  left_join(unique(ind[,c('phaseNo', 'species', 'captures')]))
+
+
+ibdcorrsex <- read.csv('./output/ibd_sex_analysis.csv') %>% 
+  mutate(phase = case_when(
+    phase == 'L' ~ 'low',
+    phase == 'D' ~ 'decrease',
+    phase == 'I' ~ 'increase'),
+    phase = ifelse(grepl('young', species), 'stable', phase)) %>% 
+  left_join(unique(ind[,c('phaseNo', 'species', 'captures')]))
+
+# FST ---------------------------------------------------------------------
+
+## fst npp captures Nm --------------------------------------------------------
+
+freee <- 'free'
+
+
+
+### nm plot -----------------------------------------------------------------
+
+nmplot <- ggplot(fstdata, aes(y = fst, x = npp, fill = phase)) +
+  stat_smooth(data = filter(fstdata, ph), show.legend = F,
+              method = lm, se = F, colour = 'grey75', aes(group = phase),
+              lwd = 2) +
+  geom_point(aes(colour = phase, fill = phase), size = 3, show.legend = F,
+             alpha = 0.2) +
+  geom_point(data = meandata, aes(y = mean.fst), 
+             colour = 'black', shape = 23, size = 4) +
+  stat_smooth(method = lm, se = F, colour = 'grey30', show.legend = F,
+              aes(group = species)) +
+  facet_wrap(~ species, ncol = 2, scale = freee) +
+  scale_colour_discrete(na.translate = F)+
+  theme_bw()+
+  scale_x_log10()+
+  xlab(expression('Net primary productivity '[log-scale]))+
+  ylab(expression(italic('F')[ST]))+
+  theme(panel.grid = element_blank(),
+        strip.background = element_blank(),
+        legend.position ='none',
+        legend.background = element_rect(colour = 'grey'),
+        axis.title = element_text(size = 13),
+        strip.text.x = element_text(face = 'italic', size = 12))+
+  scale_fill_manual(values = phaseCol,
+                    name = 'Population phase', na.translate = FALSE,
+                    labels = str_to_title(names(phaseCol)))+
+  scale_colour_manual(values = phaseCol,
+                      labels = str_to_title(names(phaseCol)),
+                      name = 'Population phase')
+nmplot
+
+
+### m plot ------------------------------------------------------------------
+
+
+mplot <-fstdata %>% 
+  ggplot(aes(mSrgt, fst, colour = phase, fill = phase, group = phase))+
+  scale_x_log10()+
+  theme_bw()+
+  facet_wrap(~species,scale = freee, ncol = 2)+
+  stat_smooth(data = filter(fstdata, grepl('hermann', species)), 
+              show.legend = F,
+              method = lm, se = F, aes(group = phase),
+              lwd = 2)+
+  geom_point(alpha = 0.2)+
+  geom_point(data = meandata, aes(y = mean.fst), 
+             colour = 'black', shape = 23, size = 3)+
+  stat_smooth(method = lm, se = F, colour = 'black', show.legend = F,
+              aes(group = species)) +
+  theme(legend.position = 'inside',
+        legend.position.inside = c(0.87,0.73),
+        panel.grid = element_blank(),
+        strip.background = element_blank(),
+        legend.background = element_rect(colour = 'grey'),
+        axis.title = element_text(size = 13),
+        strip.text.x = element_text(face = 'italic', size = 12))+
+  scale_colour_manual(values = phaseCol,
+                      labels = str_to_title(names(phaseCol)),
+                      name = 'Population phase')+
+  scale_fill_manual(values = phaseCol,
+                    name = 'Population phase', na.translate = FALSE,
+                    labels = str_to_title(names(phaseCol)))+
+  ylab(expression(italic('F')[ST]))+
+  xlab(expression(italic(Nm)~" / mean captures  "[ log-scale]))
+mplot
+
+
+### n plot ------------------------------------------------------------------
+
+
+nplot <- fstdata %>% 
+  ggplot(aes(captures, fst, colour = phase, fill = phase, group = phase))+
+  facet_wrap(~species,scale = freee, ncol = 2)+
+  theme_bw()+
+  geom_smooth(data = filter(fstdata, grepl('hermann', species)),
+              method = 'lm', se = F, linewidth = 2)+
+  geom_point(alpha = 0.2)+
+  geom_point(data = meandata, aes(y = mean.fst), 
+             colour = 'black', shape = 23, size = 3)+
+  geom_smooth(method = 'lm', se = F, aes(group = species), colour = 'black')+
+  theme(legend.position = 'none',
+        panel.grid = element_blank(),
+        strip.background = element_blank(),
+        legend.background = element_rect(colour = 'grey'),
+        axis.title = element_text(size = 13),
+        strip.text.x = element_text(face = 'italic', size = 12))+
+  scale_colour_manual(values = phaseCol,
+                      labels = str_to_title(names(phaseCol)),
+                      name = 'Population phase')+
+  scale_fill_manual(values = phaseCol,
+                    name = 'Population phase', na.translate = FALSE,
+                    labels = str_to_title(names(phaseCol)))+
+  ylab(expression(italic('F')[ST]))+
+  xlab(expression('Mean captures '[100 /trap-nights]))
+
+nplot
+
+### arrange plot --------
+
+textNm <- grobTree(textGrob('Nm',
+                            x=0.01,  
+                            y= 0.5,
+                            hjust=0, rot = 0,     #was fontsize = 12
+                            gp=gpar(col="black", fontsize=18, fontface="italic")))
+ggplot(fstdata)+
+  textNm
+
+
+textN <- grobTree(textGrob('N',
+                           x=0.01,  
+                           y= 0.5,
+                           hjust=0, rot = 0,     #was fontsize = 12
+                           gp=gpar(col="black", fontsize=18, fontface="italic")))
+
+# 
+# library(extrafont) 
+# #font_import()
+# loadfonts(device = "win")
+
+textm <- grobTree(textGrob('m',
+                           x=0.01,  
+                           y= 0.5,
+                           hjust=0, rot = 0,     #was fontsize = 12
+                           gp=gpar(col="black", fontsize=18, fontface="italic", fontfamily = "Zapfino")))
+
+
+repx <- 12
+layout <- rbind(c(rep(1,repx), 4),
+                c(rep(2,repx), 5),
+                c(rep(3,repx), 6))
+fstmn <- grid.arrange(nmplot,nplot, 
+                      mplot+theme(legend.position = c(0.86,0.67),
+                                  legend.key.size = unit(0.45, units = 'cm')),
+                      textNm,textN, textm,
+                      layout_matrix = layout)
+
+
+ggsave(filename = './figures/caps_m_fst_spp.png', plot = fstmn,
+       units = "cm", width = 16, height = 21, dpi = 600)
+
+## models ---------
+
+### sy ---------
+fstdata$x <- fstdata$captures
+mns <-  lmer(fst ~ x  + (1|phaseNo), data = filter(fstdata,
+                                                  species2 == 'sy'),REML = F) 
+fstdata$x <- log(fstdata$mSrgt)
+mms <- lmer(fst ~ x  + (1|phaseNo), data = filter(fstdata, !is.infinite(mSrgt),
+                                                 species2 == 'sy'),REML = F) 
+fstdata$x <- fstdata$npp.log
+mnms <- lmer(fst ~ x  + (1|phaseNo), data = filter(fstdata, 
+                                                  species2 == 'sy'),REML = F) 
+
+sjPlot::tab_model(mms, mns,mnms, dv.labels = c('m', 'N', 'Nm'), digits = 4)
+
+aicsy<-AIC(mnms, mns, mms) %>% 
+  as.data.frame %>% 
+  mutate(delta = AIC - min(AIC),
+         rel_lik = exp(-0.5 * delta),
+         weights = (rel_lik / sum(rel_lik)),
+         Model = c('Nm','N', 'm'),
+         Species = 'S. youngsoni') %>% 
+  arrange(AIC)
+### no phase ---------
+fstdata$x <- fstdata$captures
+mn <-  lmer(fst ~ x  + (1|phaseNo), data = filter(fstdata,
+                                                  species2 == 'ph'),REML = F) 
+fstdata$x <- log(fstdata$mSrgt)
+mm <- lmer(fst ~ x  + (1|phaseNo), data = filter(fstdata,
+                                                 species2 == 'ph'),REML = F) 
+fstdata$x <- fstdata$npp.log
+mnm <- lmer(fst ~ x  + (1|phaseNo), data = filter(fstdata,
+                                                  species2 == 'ph'),REML = F) 
+
+sjPlot::tab_model(mm, mn,mnm, dv.labels = c('m', 'N', 'Nm'), digits = 4)
+
+
+
+
+### phase -------
+fstdata$x <- fstdata$captures
+mnp <-  lmer(fst ~ x * phase + (1|phaseNo), data = filter(fstdata,
+                                                         species2 == 'ph'),REML = F) 
+fstdata$x <- log(fstdata$mSrgt)
+mmp <- lmer(fst ~ x * phase + (1|phaseNo), data = filter(fstdata,
+                                                        species2 == 'ph'),REML = F) 
+fstdata$x <- fstdata$npp.log
+mnmp <- lmer(fst ~ x * phase + (1|phaseNo), data = filter(fstdata,
+                                                         species2 == 'ph'),REML = F) 
+
+sjPlot::tab_model(mmp, mnp,mnmp, dv.labels = c('m', 'N', 'Nm'), digits = 3)
+AIC(mnmp, mnp, mmp)
+aicph <- AIC(mnm, mn, mm,mnmp, mnp, mmp) %>% 
+  as.data.frame %>% 
+  mutate(delta = AIC - min(AIC),
+         rel_lik = exp(-0.5 * delta),
+         weights = (rel_lik / sum(rel_lik)),
+         Model = c('Nm','N', 'm',
+                   'Nm_phase','N_phase', 'm_phase'),
+         Species = 'P. hermanns') %>% 
+  arrange(AIC) %>% 
+  rbind(aicsy) %>% 
+  mutate(delta = round(delta, 1),
+         weights = round(weights,2)) %>% 
+  dplyr::select(-rel_lik)
+aicph
+MuMIn::r.squaredGLMM(mnp)
+MuMIn::r.squaredGLMM(mmp)
+### flextable ---------------------------------------------------------------
+modeltbsx<-em.coef.models(mnm, T, 'Nm') %>% 
+  rbind(em.coef.models(mn, T, 'N')) %>% 
+  rbind(em.coef.models(mm, T, 'm')) %>%
+  rbind(em.coef.models(mnmp, T, 'Nm_phase')) %>% 
+  rbind(em.coef.models(mnp, T, 'N_phase')) %>% 
+  rbind(em.coef.models(mmp, T, 'm_phase')) %>%
+  rbind(em.coef.models(mnms, F, 'Nm')) %>% 
+  rbind(em.coef.models(mns, F, 'N')) %>% 
+  rbind(em.coef.models(mms, F, 'm')) %>%
+  left_join(aicph[,3:6]) %>% 
+  separate(Model, into = c('Model', 'interaction')) %>% 
+  # mutate(Parameter = case_when(
+  #   Model == 'Nm' & Parameter == 'x' ~ 'npp log',
+  #   Model == 'N' & Parameter == 'x'~ 'Captures',
+  #   Model == 'm' & Parameter == 'x'~ 'Nm/captures',
+  #   .default = Parameter
+  # )) %>% 
+  mutate(R2 = ifelse(duplicated(R2), NA, R2),
+         delta = ifelse(duplicated(paste(Species, Model,
+                                         interaction)), NA, delta),
+         weights = ifelse(duplicated(paste(Species, Model,
+                                         interaction)), NA, weights),
+         Model = ifelse(duplicated(paste(Species, Model,
+                                         interaction)), NA, Model),
+         
+         Species = ifelse(duplicated(Species), NA, Species),
+         Parameter = gsub('phase', '', Parameter),
+         Parameter = gsub('\\(Intercept\\)', 'Intercept', Parameter)) %>% 
+  dplyr::select(-interaction)
+  
+
+
+modeltbsx
+mtb <- modeltbsx
+modeltbsx %>% 
+  dplyr::select(-sig) %>% 
+  flextable() %>% 
+  bold(part = 'header') %>%
+  italic(j = 1) %>% 
+  # italic(part = 'header', j = 2) %>% 
+  border_remove() %>%  
+  bold(j = 4, i = which(mtb$sig)) %>% 
+  autofit() %>%
+  italic(j = 2) %>% 
+  #width(j = 3, width = 5, unit = 'cm') %>% 
+  hline(i = c(nrow(mtb)),
+        border = fp_border(color = "grey40", width = 3)) %>% 
+  hline(part = 'header',
+        border = fp_border(color = "grey40", width = 2.5)) %>% 
+  hline(i = which(!is.na(mtb$Model))[-1]-1,
+        j = -1,
+        border = fp_border(color = "grey80",
+                           width = 1.5, 
+                           style = 'solid')) %>% 
+hline(i = which(mtb$Species == 'S. youngsoni')-1,
+      border = fp_border(color = "grey60",
+                         width = 2)) %>% 
+  hline(i = which(!is.na(mtb$Model))[4]-1,
+        j = -1,
+        border = fp_border(color = "grey60",
+                           width = 2)) %>% 
+  compose(
+    part = "header", j = 5,
+    value = as_paragraph(('R'), as_sup('2'))) %>% 
+  compose(
+    part = "header", j = 6,
+    value = as_paragraph(('AIC'), as_sub('delta'))) %>% 
+  compose(
+    part = "header", j = 7,
+    value = as_paragraph(('AIC'), as_sub('weights'))) %>% 
+  compose(
+    part = "body", j = 3, i = grep('log', mtb$Parameter),
+    value = as_paragraph(('log'), as_sub('e'), ('NPP'))) -> fxtb_r_npp;fxtb_r_npp
+
+save_as_docx(fxtb_r_npp, path = './figures/fst_models.docx')
+
+# individual --------------------------------------------------------------
+
+## correlograms ------------------------------------------------------------
+ibdcorr %>%  
+  mutate(
+    sig = Pr.corrected. < 0.05 & Mantel.cor > 0,
+    d.class = exp(breaksto)
+    #sig = Pr.Mantel. < 0.05
+  ) %>% 
+  filter(complete.cases(Pr.corrected.)) -> mantel.results2 
+
+#ibdcorrsex%>% 
+ibdcorrsex %>% 
+  mutate(
+    sig = Pr.corrected. < 0.05 & Mantel.cor > 0,
+    #sig = Pr.Mantel. < 0.05
+  ) %>% 
+  filter(complete.cases(Pr.corrected.)) -> mantel.results 
+
+# figure
+xibdcorrexes <- ibdcorrsex %>% 
+  filter(class.index < 0) %>% 
+  mutate(Mantel.cor = ifelse(Mantel.cor < 0, 0, 
+                             Mantel.cor),
+         sex_pairs = ifelse(sex_pairs == 'f-f', 'Female', 'Male')) 
+
+phaseCol2 <- phaseCol
+names(phaseCol2) <- toupper(str_sub(names(phaseCol2), 1,1))
+
+mantel.results %>% 
+  bind_rows(mantel.results2) %>%
+  mutate(sig = ifelse(sig, 1, 0),
+       #    sig = ifelse(n.dist < 10, 2, sig),
+         sig = factor(sig)) %>% 
+  mutate(Mantel.cor = ifelse(Mantel.cor < 0, 0, Mantel.cor),
+         sex_pairs = case_when(
+           sex_pairs == 'f-f' ~ 'Females',
+           sex_pairs == 'm-m' ~ 'Males',
+           sex_pairs == 'all' ~ 'All'
+         )
+  ) %>%
+  ggplot(aes(exp(breaksto), Mantel.cor, 
+             fill= sig, colour = npp,
+             group = phaseNo))+
+  geom_hline(yintercept = 0, #size = 1,
+             colour = 'grey', 
+             linetype = 'dashed')+
+  geom_line(linewidth = 0.75)+
+  geom_point( shape = 21, size = 2, colour = 'black')+
+  
+  scale_x_log10(breaks = unique(exp(mantel.results$breaksto)))+
+  #guides(size = 'none')+
+  # scale_colour_manual(values = unname(phaseCol),
+  #                     labels = c('low', 'increase', 'decrease'))+
+  scale_fill_manual(values = c('white', 'pink', 'grey'),
+                    labels = c('No IBD', 'IBD', 'n < 10'),
+                    name = NULL)+
+  scale_colour_gradientn(colours = nppCol,
+                         na.value = 'white',
+                         name = "NPP")+
+  theme_bw()+
+  theme(panel.grid = element_blank(),
+        strip.background = element_blank(),
+        strip.text.x = element_text(face = 'italic', size = 9),
+        strip.text.y = element_text(size = 12))+
+  xlab('Distance classes (km)')+
+  ylab(expression(italic('r')))+
+  facet_grid(sex_pairs~species, scale = 'free_x') -> mantel.plot.sex
+mantel.plot.sex
+
+# tiff('./figures/IBD/fig_correlogram_sexes.tiff', res = 600,
+#      units = 'cm', width = 16, height = 18)
+# mantel.plot.sex
+# dev.off()
+
+ggsave('./figures/fig_correlogram_sexes.png', plot = mantel.plot.sex,
+       units = "cm", width = 14, height = 14, dpi = 300)
+
+## mantel r ------------------------------------------------------------------
+
+ibdcorrsex %>% 
+  bind_rows(ibdcorr) %>% 
+  filter(dist < 1) %>% 
+  mutate(Mantel.cor = ifelse(Mantel.cor < 0, 0,Mantel.cor)) %>% 
+  mutate(sex_pairs = ifelse(grepl('all', sex_pairs), 'All', sex_pairs)) %>% 
+  ggplot(aes(npp, Mantel.cor, colour = sex_pairs,
+             fill = sex_pairs, group = sex_pairs))+
+  scale_shape_manual(values = c(24,22))+
+  geom_point(pch = 21, #aes(pch = sex_pairs), 
+             size = 3,
+             colour = 'black',
+             alpha = 0.5
+  )+
+  theme_bw()+
+  guides(shape = 'none')+
+  geom_smooth(method = 'lm', se = F, show.legend = F)+
+  # scale_x_continuous(trans = log_trans(), 
+  #                    breaks = 8 * 2^seq(0,5,1))+
+  scale_x_log10()+
+  facet_grid(~species) +
+  ylab('mantel correlation (<1km)')+
+  scale_fill_manual(values = c('grey', 'red', 'black'), #unname(phaseCol),
+                    name = 'Comparison')+
+  scale_colour_manual(values = c('grey', 'red', 'black'),
+                      name = 'Comparison',
+                      #labels = c('females', 'males')
+  )+
+  theme_bw()+
+  theme(panel.grid = element_blank(),
+        legend.position = c(0.89,0.65),
+        legend.background = element_rect(colour = 'grey'),
+        axis.title = element_text(size = 13),
+        legend.key.size = unit(0.5, units = 'cm'),
+        strip.text.x = element_text(face = 'italic', size = 11),
+        strip.text.y = element_text(size = 12),
+        strip.background = element_blank())+
+  ylab(expression(italic("r")*' (distance class 0 - 1km)'))+
+  xlab(expression('Net primary productivity '[log-scale])) -> fig_r_npp_sexes2;fig_r_npp_sexes2
+
+
+ggsave('./figures/fig_r_npp_sexes.png', plot = fig_r_npp_sexes2,
+       units = "cm", width = 14, height = 9, dpi = 600)
+
+
+### models ------------------------------------------------------------------
+
+
+
+
+### flextables --------------------------------------------------------------
+
+
+
+# ibd models --------------------------------------------------------------
+
 
 
 mod_r_ph <- lm(Mantel.cor ~ captures + log(npp) , #weights = (n.dist),
