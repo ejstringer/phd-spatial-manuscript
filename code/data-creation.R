@@ -174,26 +174,6 @@ ibdDatasex <- lapply(df_index, function(x) filter(individual_final, grepl(x$x, s
 ibdcorrsexes <- lapply(ibdDatasex, em.ibd.period.correlog, test = 'pearson')
 
 ibdcorrsexes_join <- do.call('bind_rows', ibdcorrsexes)
-### no phase (not working) ------
-
-## by sex ----------------------
-individual_final_noPhase <- individual_final
-individual_final_noPhase$phaseNo <- 'noPhaseNo'
-individual_final_noPhase$phaseNo<- factor(individual_final_noPhase$phaseNo)
-
-#names(df_index) <- paste()
-ibdDatasexNophase <- lapply(df_index, 
-                            function(x) filter(individual_final_noPhase,
-                                               grepl(x$x, species),
-                                               sex_pairs %in% unlist(str_split(x$y, ',')),
-                                               complete.cases(metres)))
-
-
-
-## mantel correlog -------
-ibdcorrsexesNophase <- lapply(ibdDatasexNophase, em.ibd.period.correlog, test = 'pearson')
-
-ibdcorrsexesNophase_join <- do.call('bind_rows', ibdcorrsexesNophase)
 
 # save --------------------------------------------------------------------
 

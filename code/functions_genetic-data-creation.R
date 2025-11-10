@@ -104,7 +104,7 @@ em.filtering <- function(species = 'ph') {
   
   glx <- glO
   glx <- gl.filter.callrate(glx, method = "ind", threshold = 0.5, verbose = 0)
-  glx <- gl.filter.rdepth(glx, verbose =0, lower = 5) 
+  glx <- gl.filter.rdepth(glx, verbose =0, lower = 5, upper = 50) 
   glx <- gl.filter.reproducibility(glx,threshold = 0.95, verbose = 0)
   glx <- gl.filter.monomorphs(glx, verbose = 0)
   
