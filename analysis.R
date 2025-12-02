@@ -72,7 +72,7 @@ fstdata_NNm <- read.csv('./output/fst_analysis.csv') %>%
          phase = ifelse(grepl('young', species), 'stable', phase),
          ph = grepl('herm', species),
          phase = factor(phase, levels = c('increase', 'decrease','low', 'stable')))
-
+capadjust <- 25/1.69
 em.Nm <- function(fst) (1/fst-1)/4
 mfm <- fstdata_NNm |>
   group_by(species, phaseNo, phase, captures) |>
@@ -313,7 +313,26 @@ mnmp <- lmer(fst ~ x * phase + (1|phaseNo), data = filter(fstdata,
 
 sjPlot::tab_model(mmp, mnp,mnmp, dv.labels = c('m', 'N', 'Nm'), digits = 3)
 AIC(mnmp, mnp, mmp)
-aicph <- AIC(mnm, mn, mm,mnmp, mnp, mmp) %>% 
+
+aicph<-AIC(mnm, mn, mm) %>% 
+  as.data.frame %>% 
+  mutate(delta = AIC - min(AIC),
+         rel_lik = exp(-0.5 * delta),
+         weights = (rel_lik / sum(rel_lik)),
+         Model = c('Nm','N', 'm'),
+         Species = 'P. hermanns') %>% 
+  arrange(AIC)
+
+aicphp<-AIC(mnmp, mnp, mmp) %>% 
+  as.data.frame %>% 
+  mutate(delta = AIC - min(AIC),
+         rel_lik = exp(-0.5 * delta),
+         weights = (rel_lik / sum(rel_lik)),
+         Model = c('Nm_phase','N_phase', 'm_phase'),
+         Species = 'P. hermanns') %>% 
+  arrange(AIC)
+
+aicall <- AIC(mnm, mn, mm,mnmp, mnp, mmp) %>% 
   as.data.frame %>% 
   mutate(delta = AIC - min(AIC),
          rel_lik = exp(-0.5 * delta),
@@ -326,7 +345,14 @@ aicph <- AIC(mnm, mn, mm,mnmp, mnp, mmp) %>%
   mutate(delta = round(delta, 1),
          weights = round(weights,2)) %>% 
   dplyr::select(-rel_lik)
-aicph
+
+# 
+# aicall <- rbind(aicph, aicphp) %>% 
+#   rbind(aicsy) %>% 
+#   mutate(delta = round(delta, 1),
+#          weights = round(weights,3)) %>% 
+#   dplyr::select(-rel_lik)
+aicall
 MuMIn::r.squaredGLMM(mnp)
 MuMIn::r.squaredGLMM(mmp)
 ### flextable ---------------------------------------------------------------
@@ -339,7 +365,7 @@ modeltbsx<-em.coef.models(mnm, T, 'Nm') %>%
   rbind(em.coef.models(mnms, F, 'Nm')) %>% 
   rbind(em.coef.models(mns, F, 'N')) %>% 
   rbind(em.coef.models(mms, F, 'm')) %>%
-  left_join(aicph[,3:6]) %>% 
+  left_join(aicall[,3:6]) %>% 
   separate(Model, into = c('Model', 'interaction')) %>% 
   # mutate(Parameter = case_when(
   #   Model == 'Nm' & Parameter == 'x' ~ 'npp log',
@@ -591,7 +617,10 @@ modeltbsx %>%
     value = as_paragraph(('R'), as_sup('2'))) %>% 
   compose(
     part = "body", j = 2, i = grep('log', mtb$Parameter),
-    value = as_paragraph(('log'), as_sub('e'), ('NPP'))) -> fxtb_r_npp;fxtb_r_npp
+    value = as_paragraph(('log'), as_sub('e'), ('NPP'))) %>% 
+  compose(
+    part = "body", j = 2, i = grep('m-m', mtb$Parameter),
+    value = as_paragraph(('Sex pair'), as_sub('m-m'), ('NPP')))-> fxtb_r_npp;fxtb_r_npp
 
 
 ## phase comparisons -------------------------------------------------------
@@ -688,26 +717,16 @@ anova(m2)
 #https://aosmith.rbind.io/2019/03/25/getting-started-with-emmeans/
 
 
-sydiff <- emmeans(m2, specs = pairwise ~ km:sex_pairs)
+sydiff <- emmeans(m2, specs = pairwise ~ km:sex_pairs, at = list(km = 0))
 
-differences <- emmeans(m, specs = pairwise ~ km:sex_pairs:phase)
-
-emmeans(m, specs = pairwise ~ sex_pairs:phase)
-emmeans(m, specs = pairwise ~ km:sex_pairs)
-
-emmeans(m, specs = pairwise ~ km:phase)
-
-ggplot(filter(ind, km <= 5), aes(km, kinship, colour = npp))+
-  geom_point()+
-  facet_wrap(~species, scale = 'free_x')
-
+differences <- emmeans(m, specs = pairwise ~ km:sex_pairs:phase, at = list(km = 0))
 
 #### flextable ---------------------------------------------------------------
 
 
 diffcontrasts <- as.data.frame(differences$contrasts) %>% 
-  mutate(km.mean = 0.25,
-         contrast = gsub('km0.253353317056273', '', contrast),
+  mutate(km.mean = 0,
+         contrast = gsub('km0', '', contrast),
          contrast = gsub('\\(', '', contrast),
          contrast = gsub('\\)', '', contrast)) %>% 
   separate(contrast, into = c('con1', 'con2'),sep = ' - ') %>% 
@@ -742,7 +761,8 @@ diffcontrasts <- as.data.frame(differences$contrasts) %>%
 
 fxtb_compair<-diffcontrasts %>% 
   mutate(km.mean = ifelse(duplicated(km.mean), NA, km.mean),
-         sex.comparison = ifelse(duplicated(sex.comparison), NA, sex.comparison)) %>% 
+         sex.comparison = ifelse(duplicated(sex.comparison),
+                                 NA, sex.comparison)) %>% 
   flextable() %>% 
   autofit() %>% 
   theme_alafoli() %>% 
@@ -752,161 +772,37 @@ fxtb_compair<-diffcontrasts %>%
 
 
 
-fxtb_compairsy<-rbind(as.data.frame(sydiff$contrasts)) %>% 
-  mutate(km.mean = 0.26,
+fxtb_compairsy<-(as.data.frame(sydiff$contrasts)) %>% 
+  mutate(km.mean = 0,
          sex.comparison = '',
-         contrast = gsub('km0.255539329692277', '', contrast),
+         contrast = gsub('km0', '', contrast),
          contrast = gsub('\\(', '', contrast),
          contrast = gsub('\\)', '', contrast),
-         contrast = '(f-f) - (m-m)') %>% 
+         contrast = '(f-f) - (m-m)',
+         p.value = ifelse(p.value < 0.001, '<0.001',
+                          sprintf("%.3f",round(p.value, 3))),) %>% 
   mutate_if(is.numeric, round, 2) %>% 
   relocate(km.mean, sex.comparison) %>% 
   dplyr::select(-df) %>% 
   flextable() %>% 
   autofit() %>% 
-  theme_alafoli()
-
-# save tables -------------------------------------------------------------
-
-save_as_docx(fxtb_fst, fxtb_r_npp,fxtb_compair,fxtb_compairsy,
-             path = './figures/model_tables.docx')
-
-# ibd models --------------------------------------------------------------
+  theme_alafoli() %>% 
+  bold(j = 3:7, i = which(abs(as.data.frame(sydiff$contrast)$t.ratio) > 2))
+fxtb_compairsy
 
 
+#### diff km = 1 -------------------------------------------------------------
 
-mod_r_ph <- lm(Mantel.cor ~ captures + log(npp) , #weights = (n.dist),
-               data = filter(xibdcorr, grepl('herm', species))) 
-mod_r_sy <- lm(Mantel.cor ~ captures+ log(npp), 
-               data = filter(xibdcorr, grepl('young', species)))
+sydiff <- emmeans(m2, specs = pairwise ~ km:sex_pairs, at = list(km = 1))
 
-sjPlot::tab_model(mod_r_ph, mod_r_sy, digits = 3)
+differences <- emmeans(m, specs = pairwise ~ km:sex_pairs:phase, at = list(km = 1))
 
-
-
-modeltbsx <- rbind(em.coef.models2(mod_r_ph, T,'P. hermann'),
-                   em.coef.models2(mod_r_sy, F, 'S. youngsoni')) %>% 
-  dplyr::select(-Model) %>% 
-  mutate(Species = ifelse(duplicated(Species), NA, Species))
-
-mtb <- modeltbsx
-modeltbsx %>% 
-  dplyr::select(-sig) %>% 
-  flextable() %>% 
-  bold(part = 'header') %>%
-  italic(j = 1) %>% 
-  # italic(part = 'header', j = 2) %>% 
-  border_remove() %>%  
-  bold(j = 3, i = which(mtb$sig)) %>% 
-  autofit() %>%
-  width(j = 3, width = 5, unit = 'cm') %>% 
-  hline(i = c(nrow(mtb)),
-        border = fp_border(color = "grey40", width = 3)) %>% 
-  hline(part = 'header',
-        border = fp_border(color = "grey40", width = 2)) %>% 
-  hline(i = which(mtb$Species == 'S. youngsoni')-1,
-        border = fp_border(color = "grey60",
-                           width = 2, 
-                           style = 'dashed')) %>% 
-  compose(
-    part = "body", j = 2, i = grep('Intercept', mtb$Parameter),
-    value = as_paragraph(('Intercept'), as_sub('mantel'))) %>% 
-  compose(
-    part = "body", j = 2, i = grep('cap', mtb$Parameter),
-    value = as_paragraph(('Captures'))) %>% 
-  compose(
-    part = "header", j = 4,
-    value = as_paragraph(('R'), as_sup('2'))) %>% 
-  compose(
-    part = "body", j = 2, i = grep('log', mtb$Parameter),
-    value = as_paragraph(('log'), as_sub('e'), ('NPP'))) -> fxtb_r_npp;fxtb_r_npp
-
-
-### anovas -------------
-mod_r_ph <- lm(Mantel.cor ~ captures + log(npp) , #weights = (n.dist),
-               data = filter(xibdcorr, grepl('herm', species))) 
-mod_r_sy <- lm(Mantel.cor ~ captures+ log(npp), 
-               data = filter(xibdcorr, grepl('young', species)))
-
-m5sy <- lm(Mantel.cor ~ log(npp) +captures, #weights = (n.dist),
-               data = filter(xibdcorr, grepl('herm', species))) 
-m5bsy <- lm(Mantel.cor ~ log(npp) + captures, 
-               data = filter(xibdcorr, grepl('young', species)))
-
-
-
-rbind(anova(mod_r_ph), anova(m5sy), anova(mod_r_sy),
-      anova(m5bsy)) %>% as.data.frame %>% 
-  mutate(pvalue = ifelse(`Pr(>F)` < 0.001,'<0.001', 
-                         round(`Pr(>F)`, 4)),
-         anova = rep(c(1:2,1:2), each = 3),
-         parameter = rownames(.),
-         parameter = sub('[[:digit:]]', '', parameter),
-         species = rep(c('P. hermans', 'S. young'),each = 6),
-         `F value` = round(`F value`, 1)) %>% 
-  dplyr::select(-`Pr(>F)`) %>% 
-  relocate(species, anova, parameter) %>% 
-  mutate_if(is.numeric, round, 4) %>% 
-  mutate(anova = ifelse(duplicated(paste(anova, species)), NA, anova),
-         species = ifelse(duplicated(species), NA, species)) %>% 
-  flextable() %>% 
-  autofit() %>% 
-  # align(j = 1, align = 'right') %>%
-  #  align(j = 1, align = 'right', part = 'header') %>% 
-  border_remove() %>% 
-  bold(part = 'header') %>%
-  border_outer() %>% 
-  bg(bg = 'grey95', j = 1) %>%
-  align(j = 3, align = 'right') %>% 
-  # bg(bg = 'grey99', j = 2:3) %>%
-  hline(i = seq(3, 9,3), j = -1,
-        border = fp_border_default(width = 1, col = 'grey70')) %>% 
-  hline(part = 'header', border = fp_border_default(width = 3, col = 'grey70')) %>% 
-  hline(i = 6, border = fp_border_default(width = 2, col = 'grey70'))
-
-
-
-# sex-density-dependence --------------------------------------------------
-
-phsex <- ind %>% filter(sex_pairs %in% c('f-f', 'm-m'),
-               species2== 'ph', km <= 1) %>% 
-  mutate(phase = factor(phase, levels = c('low', 'increase', 'decrease')))
-
-sysex <- ind %>% filter(sex_pairs %in% c('f-f', 'm-m'),
-                        species2== 'sy', km <= 1)
-
-names(phsex)
-
-m<-lmer(euclidean ~ km * sex_pairs *  phase + (1|phaseNo), data = phsex)
-
-m2 <-lmer(euclidean ~ km * sex_pairs + (1|phaseNo), data = sysex)
-
-anova(m)
-anova(m2)
-
-summary(m2)
-
-anova(lm(iris$Petal.Length ~ iris$Sepal.Length + iris$Species))
-#https://aosmith.rbind.io/2019/03/25/getting-started-with-emmeans/
-library(emmeans)
-
-emmeans(m2, specs = pairwise ~ km:sex_pairs)
-
-differences <- emmeans(m, specs = pairwise ~ km:sex_pairs:phase)
-
-emmeans(m, specs = pairwise ~ sex_pairs:phase)
-emmeans(m, specs = pairwise ~ km:sex_pairs)
-
-emmeans(m, specs = pairwise ~ km:phase)
-
-ggplot(filter(ind, km <= 5), aes(km, kinship, colour = npp))+
-  geom_point()+
-  facet_wrap(~species, scale = 'free_x')
+#### flextable ---------------------------------------------------------------
 
 
 diffcontrasts <- as.data.frame(differences$contrasts) %>% 
-  mutate(km.mean = 0.25,
-         contrast = gsub('km0.253353317056273', '', contrast),
+  mutate(km.mean = 1,
+         contrast = gsub('km1', '', contrast),
          contrast = gsub('\\(', '', contrast),
          contrast = gsub('\\)', '', contrast)) %>% 
   separate(contrast, into = c('con1', 'con2'),sep = ' - ') %>% 
@@ -939,13 +835,217 @@ diffcontrasts <- as.data.frame(differences$contrasts) %>%
   rename(sex.comparison = sex)
 
 
-diffcontrasts %>% 
+fxtb_compair1<-diffcontrasts %>% 
   mutate(km.mean = ifelse(duplicated(km.mean), NA, km.mean),
-         sex.comparison = ifelse(duplicated(sex.comparison), NA, sex.comparison)) %>% 
+         sex.comparison = ifelse(duplicated(sex.comparison),
+                                 NA, sex.comparison)) %>% 
   flextable() %>% 
   autofit() %>% 
   theme_alafoli() %>% 
   bold(j = 3:7, i = which(abs(diffcontrasts$z.ratio) >2.9)) %>% 
-  hline(j = -1, i = c(3,6), border= fp_border_default(width = 1.5, color = 'grey', style = 'dashed'))
+  hline(j = -1, i = c(3,6), 
+        border= fp_border_default(width = 1.5, color = 'grey', style = 'dashed'))  
 
+
+
+fxtb_compairsy1<-(as.data.frame(sydiff$contrasts)) %>% 
+  mutate(km.mean = 0,
+         sex.comparison = '',
+         contrast = gsub('km0', '', contrast),
+         contrast = gsub('\\(', '', contrast),
+         contrast = gsub('\\)', '', contrast),
+         contrast = '(f-f) - (m-m)',
+         p.value = ifelse(p.value < 0.001, '<0.001',
+                          sprintf("%.3f",round(p.value, 3))),) %>% 
+  mutate_if(is.numeric, round, 2) %>% 
+  relocate(km.mean, sex.comparison) %>% 
+  dplyr::select(-df) %>% 
+  flextable() %>% 
+  autofit() %>% 
+  theme_alafoli() %>% 
+  bold(j = 3:7, i = which(abs(as.data.frame(sydiff$contrast)$t.ratio) >2))
+ 
+fxtb_compairsy1
+fxtb_compair1
+
+
+
+
+
+# time to equalibrium -----------------------------------------------------
+capadjust <- 25/1.69  #mean(c(37/7.3, 25/mean(c(1.69,5.88))))
+
+
+Nest <- meandata$captures[grepl('herm', meandata$species)]*capadjust
+
+em.equal <- function(m, ne) log(1/2)/(log(((1-m)^2)*(1-(1/(2*ne)))))
+
+
+
+mi <- 0.4
+ne <- 30
+te <- log(1/2)/(log(((1-mi)^2)*(1-(1/(2*ne)))))
+
+em.equalm <- function(te, ne) 1-sqrt(exp(log(1/2)/te)/(1-(1/(2*ne))))
+
+em.equalm(1, nseq)
+
+em.equal(0.1, Nest)
+em.equal(seq(0.2,1,0.1), 100)
+
+em.fst <- function(Nm) 1/(4*Nm+1)
+
+time2equalibrium <- meandata %>% 
+  filter(grepl('herm', species)) %>% 
+  ungroup() %>% 
+  group_by(phase) %>% 
+  summarise(captures = ceiling(mean(captures)),
+            mean.fst = round(mean(mean.fst),4)) %>%
+  mutate(adjustment = round(capadjust),
+         Nest = round(captures*capadjust)) %>%
+  mutate(equ0.01 = em.equal(0.01, Nest),
+         equ0.1 = em.equal(0.1, Nest),
+         equ0.2 = em.equal(0.2, Nest),
+         equ0.3 = em.equal(0.3, Nest),
+         equ0.5 = em.equal(0.5, Nest)) %>% 
+  pivot_longer(cols = equ0.01:equ0.5, names_to = 'm',
+               values_to = 't') %>% 
+  mutate(m = sub('equ', '', m),
+         m = as.numeric(m),
+         t = round(t, 1),
+         phase = ifelse(duplicated(phase), NA, as.character(phase)),
+         captures = ifelse(duplicated(captures), NA, captures),
+         fst.est = round(em.fst(Nest*m),3),
+         Nest = ifelse(duplicated(Nest), NA, Nest),
+         adjustment = ifelse(duplicated(mean.fst), NA, adjustment),
+         mean.fst = ifelse(duplicated(mean.fst), NA, mean.fst)) %>%
+  relocate(adjustment, Nest, .after = captures)
+
+
+time2equalibrium_fx <-  time2equalibrium %>% 
+  flextable() %>% 
+  autofit() %>% 
+  theme_alafoli() %>% 
+  #border_outer() %>% 
+  bold(i = c(2,7,14)) %>% 
+  hline(i = seq(5,14,5),
+        border = fp_border(color = "grey70", width = 2)) %>% 
+  vline(j = 5,
+        border = fp_border(color = "grey90", width = 1.5)) %>% 
+  hline(part = 'header',
+        border = fp_border(color = "grey40", width = 2)) %>% 
+  hline_bottom(border = fp_border(color = "grey40", width = 2))
+
+time2equalibrium_fx
+
+# time ------------
+mseq <- seq(0.01, 2, 0.00001)
+nseq <- c(222, 89, 30) 
+nseq <- c(100,50,25) # 
+
+
+time2fst <- meandata %>% 
+  filter(grepl('herm', species)) %>% 
+  ungroup() %>% 
+  group_by(phaseNo, phase) %>% 
+  summarise(captures = round(mean(captures)),
+            mean.fst = round(mean(mean.fst),4)) %>%
+  mutate(adjustment = round(capadjust),
+         Nest = round(captures*capadjust))
+
+time2fst$m <- NA
+time2fst$t <- NA
+#time2fst$Nest <- c(100,50,25)
+for (i in 1:nrow(time2fst)) {
+  d <- time2fst[i,]
+  
+  ft <- em.fst(d$Nest*mseq) 
+  
+  fttest <- round(ft, 4) == d$mean.fst
+  table(fttest)
+  d$m <- mean(mseq[fttest])
+   
+  time2fst[i,]$m <- d$m
+  time2fst[i,]$t <- em.equal(d$m, d$Nest)
+}
+time2fstfx<- time2fst %>% 
+  relocate(mean.fst, .after = Nest) %>%
+  mutate(m = round(m,2),
+         t= round(t,1)) %>%  
+  flextable() %>% 
+  autofit() %>% 
+  theme_alafoli() %>% 
+  bold(i = which(time2fst$t < 1)) %>% 
+  vline(j = 6,
+        border = fp_border(color = "grey90", width = 1.5))
+time2fstfx
+real <- data.frame(phase = time2equalibrium$phase[complete.cases(time2equalibrium$mean.fst)],
+                   fst = time2equalibrium$mean.fst[complete.cases(time2equalibrium$mean.fst)],
+                   N = nseq) %>% 
+  mutate(m = em.Nm(fst)/N,
+         t = em.equal(m, N))
+
+# figure ------------------------------------------------------------------
+mseq <- seq(0.01, 0.99, 0.01)
+nseq <- c(222, 89, 30) 
+nseq <- c(100,50,25) # 
+
+real <- data.frame(phase = time2equalibrium$phase[complete.cases(time2equalibrium$mean.fst)],
+                   fst = time2equalibrium$mean.fst[complete.cases(time2equalibrium$mean.fst)],
+           N = nseq) %>% 
+  mutate(m = em.Nm(fst)/N,
+    t = em.equal(m, N))
+
+time2equalibrium
+time2df <-data.frame(m = mseq,
+           N = rep(nseq, each = length(mseq))) %>% 
+  mutate(t = em.equal(m, N),
+         fst = em.fst(m*N)) 
+
+time2df %>% 
+  ggplot(aes(fst, t,colour = m, group = m))+
+  scale_x_log10()+
+  scale_y_log10()+
+  geom_point(size = 2)+
+  facet_grid(~N)+
+  geom_vline(data = real, aes(xintercept = fst),
+             linetype = 1, linewidth = 1, alpha = 0.5,
+             colour = 'red')+
+  theme_bw()
+
+time2df %>% 
+  ggplot(aes(m,t,colour = factor(N), group = N))+
+  #scale_x_log10()+
+  #scale_y_log10()+
+  scale_y_continuous(breaks = seq(0,6,1))+
+  geom_hline(yintercept = c(1), colour = 'grey', linetype = 1,
+             linewidth= 0.75)+
+  geom_line(linewidth = 1.5)+
+  facet_grid(~N)+
+  scale_color_manual(values = rev(unname(phaseCol[1:3])))+
+  geom_point(data = real, size = 3, colour = 'black',
+             aes(shape = factor(fst)))+
+  theme_bw()+
+  theme(panel.grid = element_blank())
+
+time2df %>% 
+  mutate(t1 = t < 1) %>% 
+  ggplot(aes(m,fst,colour = t1, group = N))+
+  #scale_x_log10()+
+  #scale_y_log10()+
+  geom_point()+
+  facet_grid(~N)+
+  #scale_color_manual(values = rev(unname(phaseCol[1:3])))+
+  geom_point(data = real, size = 3, colour = 'black',
+             aes(shape = factor(fst)))+
+  theme_bw()+
+  theme(panel.grid = element_blank())
+
+
+# save tables -------------------------------------------------------------
+
+save_as_docx(fxtb_fst, fxtb_r_npp,fxtb_compair,fxtb_compairsy,
+             fxtb_compair1, fxtb_compairsy1, time2equalibrium_fx,
+             time2fstfx,
+             path = './figures/model_tables.docx')
 
