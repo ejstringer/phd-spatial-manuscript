@@ -80,6 +80,7 @@ em.N <- function(fst, m) (1/fst-1)/(4*m)
 
 em.fstiso <- function(ne, t = 2) 1 - (1 - 1 / (2 * ne))^t
 
+
 d<-fstdata %>% 
   group_by(species, phaseNo, phase, captures, npp.log, npp) %>% 
   summarise(fst = mean(fst),
@@ -103,6 +104,8 @@ plot(e$fst[4:9]~ est.fst, col = e$phase[4:9], pch = 16)
 
 
 em.equal <- function(m, ne) log(1/2)/(log(((1-m)^2)*(1-(1/(2*ne)))))
+em.equal(seq(0,1,0.1), 25)
+em.equal(seq(0.2,1,0.1), 100)
 
 # Define parameters
 m <- 0.01    # Migration rate

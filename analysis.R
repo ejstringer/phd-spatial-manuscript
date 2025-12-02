@@ -711,8 +711,24 @@ m <-lmer(euclidean ~ km * sex_pairs *  phase + (1|phaseNo), data = phsex)
 
 m2 <-lmer(euclidean ~ km * sex_pairs + (1|phaseNo), data = sysex)
 
-anova(m)
-anova(m2)
+anovafx<-anova(m) %>% as.data.frame() %>% mutate_all(round, 3) %>% 
+  mutate(parameter= rownames(.),
+         species = 'P. hermann',
+         `Pr(>F)` = ifelse(`Pr(>F)`<0.001, '<0.001', `Pr(>F)`)) %>% 
+  mutate_if(is.numeric, round, 1) %>% 
+  relocate(species, parameter) %>% flextable() %>% 
+  autofit() %>% 
+  italic(j =1)
+
+anovafxsy<-anova(m2) %>% as.data.frame() %>% mutate_all(round, 3) %>% 
+  mutate(parameter= rownames(.),
+         species = 'S. young',
+         `Pr(>F)` = ifelse(`Pr(>F)`<0.001, '<0.001', `Pr(>F)`)) %>% 
+  mutate_if(is.numeric, round, 1) %>% 
+  relocate(species, parameter) %>% flextable() %>% 
+  autofit() %>% 
+  italic(j =1)
+
 
 #https://aosmith.rbind.io/2019/03/25/getting-started-with-emmeans/
 
@@ -873,8 +889,8 @@ fxtb_compair1
 
 
 # time to equalibrium -----------------------------------------------------
-capadjust <- 25/1.69  #mean(c(37/7.3, 25/mean(c(1.69,5.88))))
-
+capadjust <- 36/1.69mean(c(1.69,5.88))  #mean(c(37/7.3, 25/mean(c(1.69,5.88))))
+51.5
 
 Nest <- meandata$captures[grepl('herm', meandata$species)]*capadjust
 
@@ -939,20 +955,44 @@ time2equalibrium_fx <-  time2equalibrium %>%
 time2equalibrium_fx
 
 # time ------------
+
+caps <- em.rain_caps_phase() %>% 
+  mutate(phaseNo = factor(phaseNo, levels =paste0(rep(c('L', 'I', 'D'), 3),
+                                                  rep(1:3, each = 3))))
+
+captures <- caps %>% 
+  group_by(phaseNo) %>% 
+  summarise(captures = mean(captures, na.rm = T),
+            capturesSy = mean(capturesSy, na.rm = T)) %>% 
+  filter(complete.cases(phaseNo)) %>% 
+  pivot_longer(cols = captures:capturesSy, 
+               names_to = 'species', values_to = 'captures') %>% 
+  mutate(species = ifelse(species == 'captures', 'Pseudomys hermannsburgensis', 
+                           'Sminthopsis youngsoni')) %>% 
+  arrange(species, phaseNo)
+
+captures
 mseq <- seq(0.01, 2, 0.00001)
 nseq <- c(222, 89, 30) 
-nseq <- c(100,50,25) # 
+nseq <- rep(c(25,100,75),3) # 
+nseq[5] <- 200
 
+capadjust <- 25/1.69
 
-time2fst <- meandata %>% 
-  filter(grepl('herm', species)) %>% 
+time2fst <- fstdata_NNm |>
+  group_by(species, phaseNo, phase) |>
+  summarise(mean.fst = mean(fst)) %>% 
+  #filter(grepl('herm', species)) %>% 
   ungroup() %>% 
-  group_by(phaseNo, phase) %>% 
-  summarise(captures = round(mean(captures)),
+  right_join(captures) %>% 
+  group_by(species, phaseNo,phase) %>% 
+  summarise(captures = round(mean(captures),2),
             mean.fst = round(mean(mean.fst),4)) %>%
-  mutate(adjustment = round(capadjust),
-         Nest = round(captures*capadjust))
-
+  ungroup() %>% 
+  mutate(adjustment = round(capadjust,2),
+         Nest = round(captures*capadjust),
+         Nest = ifelse(grepl('young', species), NA, Nest))
+time2fst$phase[is.na(time2fst$phase)] <- 'stable'
 time2fst$m <- NA
 time2fst$t <- NA
 #time2fst$Nest <- c(100,50,25)
@@ -968,16 +1008,32 @@ for (i in 1:nrow(time2fst)) {
   time2fst[i,]$m <- d$m
   time2fst[i,]$t <- em.equal(d$m, d$Nest)
 }
+
+time2fst %>% 
+  mutate(Nm = Nest*m,
+         Nmf = em.Nm(mean.fst))
 time2fstfx<- time2fst %>% 
-  relocate(mean.fst, .after = Nest) %>%
-  mutate(m = round(m,2),
-         t= round(t,1)) %>%  
+  mutate(Nm = round(em.Nm(mean.fst),1),
+         m = round(m,2),
+         t= round(t,1),
+         species = ifelse(grepl('herm', species),
+                          'P. hermann', 'S. young'),
+         species = ifelse(duplicated(species), NA, species)) %>% 
+  dplyr::select(-adjustment) %>% 
+  relocate(mean.fst, Nm, .after = Nest) %>%
   flextable() %>% 
   autofit() %>% 
   theme_alafoli() %>% 
-  bold(i = which(time2fst$t < 1)) %>% 
+  italic(j = 8, i = which(time2fst$m > 1)) %>% 
+  bold(i = which(time2fst$t < 1), j= -1) %>%
+  hline(i = 9,border = fp_border(color = "grey70", width = 1.5)) %>%  
   vline(j = 6,
-        border = fp_border(color = "grey90", width = 1.5))
+        border = fp_border(color = "grey90", width = 1.5)) %>% 
+  hline_bottom(border = fp_border(color = "grey40", width = 2)) %>% 
+  hline_top(border = fp_border(color = "grey40", width = 2)) %>% 
+  italic(j = 6:9, part = 'header') %>% 
+  italic(j = 1)
+
 time2fstfx
 real <- data.frame(phase = time2equalibrium$phase[complete.cases(time2equalibrium$mean.fst)],
                    fst = time2equalibrium$mean.fst[complete.cases(time2equalibrium$mean.fst)],
@@ -1044,7 +1100,8 @@ time2df %>%
 
 # save tables -------------------------------------------------------------
 
-save_as_docx(fxtb_fst, fxtb_r_npp,fxtb_compair,fxtb_compairsy,
+save_as_docx(fxtb_fst, fxtb_r_npp, anovafx, anovafxsy,
+             fxtb_compair,fxtb_compairsy,
              fxtb_compair1, fxtb_compairsy1, time2equalibrium_fx,
              time2fstfx,
              path = './figures/model_tables.docx')

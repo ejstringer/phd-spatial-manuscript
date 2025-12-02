@@ -419,7 +419,7 @@ mutate(
   filter(complete.cases(Pr.corrected.)) -> mantel.results 
 
 # figure
-xibdcorrexes <- do.call('rbind', ibdcorrsexes) %>% 
+xibdcorrexes <- ibdcorrsex %>% 
   filter(class.index < 0) %>% 
   mutate(Mantel.cor = ifelse(Mantel.cor < 0, 0, 
                              Mantel.cor),
@@ -431,7 +431,7 @@ names(phaseCol2) <- toupper(str_sub(names(phaseCol2), 1,1))
 mantel.results %>% 
   bind_rows(mantel.results2) %>%
   mutate(sig = ifelse(sig, 1, 0),
-         sig = ifelse(n.dist < 30, 2, sig),
+       #  sig = ifelse(n.dist < 30, 2, sig),
          sig = factor(sig)) %>% 
   mutate(Mantel.cor = ifelse(Mantel.cor < 0, 0, Mantel.cor),
          sex_pairs = case_when(
