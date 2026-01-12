@@ -114,164 +114,18 @@ ibdcorrsex <- read.csv('./output/ibd_sex_analysis.csv') %>%
 
 # FST ---------------------------------------------------------------------
 
-## fst npp captures Nm --------------------------------------------------------
-
-freee <- 'free'
-
-
-
-### nm plot -----------------------------------------------------------------
-
-nmplot <- ggplot(fstdata, aes(y = fst, x = npp, fill = phase)) +
-  stat_smooth(data = filter(fstdata, ph), show.legend = F,
-              method = lm, se = F, colour = 'grey75', aes(group = phase),
-              lwd = 2) +
-  geom_point(aes(colour = phase, fill = phase), size = 3, show.legend = F,
-             alpha = 0.2) +
-  geom_point(data = meandata, aes(y = mean.fst), 
-             colour = 'black', shape = 23, size = 4) +
-  stat_smooth(method = lm, se = F, colour = 'grey30', show.legend = F,
-              aes(group = species)) +
-  facet_wrap(~ species, ncol = 2, scale = freee) +
-  scale_colour_discrete(na.translate = F)+
-  theme_bw()+
-  scale_x_log10()+
-  xlab(expression('Net primary productivity '[log-scale]))+
-  ylab(expression(italic('F')[ST]))+
-  theme(panel.grid = element_blank(),
-        strip.background = element_blank(),
-        legend.position ='none',
-        legend.background = element_rect(colour = 'grey'),
-        axis.title = element_text(size = 13),
-        strip.text.x = element_text(face = 'italic', size = 12))+
-  scale_fill_manual(values = phaseCol,
-                    name = 'Population phase', na.translate = FALSE,
-                    labels = str_to_title(names(phaseCol)))+
-  scale_colour_manual(values = phaseCol,
-                      labels = str_to_title(names(phaseCol)),
-                      name = 'Population phase')
-nmplot
-
-
-### m plot ------------------------------------------------------------------
-
-
-mplot <-fstdata %>% 
-  ggplot(aes(mSrgt, fst, colour = phase, fill = phase, group = phase))+
-  scale_x_log10()+
-  theme_bw()+
-  facet_wrap(~species,scale = freee, ncol = 2)+
-  stat_smooth(data = filter(fstdata, grepl('hermann', species)), 
-              show.legend = F,
-              method = lm, se = F, aes(group = phase),
-              lwd = 2)+
-  geom_point(alpha = 0.2)+
-  geom_point(data = meandata, aes(y = mean.fst), 
-             colour = 'black', shape = 23, size = 3)+
-  stat_smooth(method = lm, se = F, colour = 'black', show.legend = F,
-              aes(group = species)) +
-  theme(legend.position = 'inside',
-        legend.position.inside = c(0.87,0.73),
-        panel.grid = element_blank(),
-        strip.background = element_blank(),
-        legend.background = element_rect(colour = 'grey'),
-        axis.title = element_text(size = 13),
-        strip.text.x = element_text(face = 'italic', size = 12))+
-  scale_colour_manual(values = phaseCol,
-                      labels = str_to_title(names(phaseCol)),
-                      name = 'Population phase')+
-  scale_fill_manual(values = phaseCol,
-                    name = 'Population phase', na.translate = FALSE,
-                    labels = str_to_title(names(phaseCol)))+
-  ylab(expression(italic('F')[ST]))+
-  xlab(expression(italic(Nm)~" / mean captures  "[ log-scale]))
-mplot
-
-
-### n plot ------------------------------------------------------------------
-
-
-nplot <- fstdata %>% 
-  ggplot(aes(captures, fst, colour = phase, fill = phase, group = phase))+
-  facet_wrap(~species,scale = freee, ncol = 2)+
-  theme_bw()+
-  geom_smooth(data = filter(fstdata, grepl('hermann', species)),
-              method = 'lm', se = F, linewidth = 2)+
-  geom_point(alpha = 0.2)+
-  geom_point(data = meandata, aes(y = mean.fst), 
-             colour = 'black', shape = 23, size = 3)+
-  geom_smooth(method = 'lm', se = F, aes(group = species), colour = 'black')+
-  theme(legend.position = 'none',
-        panel.grid = element_blank(),
-        strip.background = element_blank(),
-        legend.background = element_rect(colour = 'grey'),
-        axis.title = element_text(size = 13),
-        strip.text.x = element_text(face = 'italic', size = 12))+
-  scale_colour_manual(values = phaseCol,
-                      labels = str_to_title(names(phaseCol)),
-                      name = 'Population phase')+
-  scale_fill_manual(values = phaseCol,
-                    name = 'Population phase', na.translate = FALSE,
-                    labels = str_to_title(names(phaseCol)))+
-  ylab(expression(italic('F')[ST]))+
-  xlab(expression('Mean captures '[100 /trap-nights]))
-
-nplot
-
-### arrange plot --------
-
-textNm <- grobTree(textGrob('Nm',
-                            x=0.01,  
-                            y= 0.5,
-                            hjust=0, rot = 0,     #was fontsize = 12
-                            gp=gpar(col="black", fontsize=18, fontface="italic")))
-ggplot(fstdata)+
-  textNm
-
-
-textN <- grobTree(textGrob('N',
-                           x=0.01,  
-                           y= 0.5,
-                           hjust=0, rot = 0,     #was fontsize = 12
-                           gp=gpar(col="black", fontsize=18, fontface="italic")))
-
-# 
-# library(extrafont) 
-# #font_import()
-# loadfonts(device = "win")
-
-textm <- grobTree(textGrob('m',
-                           x=0.01,  
-                           y= 0.5,
-                           hjust=0, rot = 0,     #was fontsize = 12
-                           gp=gpar(col="black", fontsize=18, fontface="italic", fontfamily = "Zapfino")))
-
-
-repx <- 12
-layout <- rbind(c(rep(1,repx), 4),
-                c(rep(2,repx), 5),
-                c(rep(3,repx), 6))
-fstmn <- grid.arrange(nmplot,nplot, 
-                      mplot+theme(legend.position = c(0.86,0.67),
-                                  legend.key.size = unit(0.45, units = 'cm')),
-                      textNm,textN, textm,
-                      layout_matrix = layout)
-
-
-ggsave(filename = './figures/caps_m_fst_spp.png', plot = fstmn,
-       units = "cm", width = 16, height = 21, dpi = 600)
 
 ## models ---------
 
 ### sy ---------
 fstdata$x <- fstdata$captures
-mns <-  lmer(fst ~ x  + (1|phaseNo), data = filter(fstdata,
+mns <-  lmer(fst ~ x  + (1|phaseNo), data = filter(fstdata, !is.infinite(mSrgt),
                                                   species2 == 'sy'),REML = F) 
 fstdata$x <- log(fstdata$mSrgt)
 mms <- lmer(fst ~ x  + (1|phaseNo), data = filter(fstdata, !is.infinite(mSrgt),
                                                  species2 == 'sy'),REML = F) 
 fstdata$x <- fstdata$npp.log
-mnms <- lmer(fst ~ x  + (1|phaseNo), data = filter(fstdata, 
+mnms <- lmer(fst ~ x  + (1|phaseNo), data = filter(fstdata, !is.infinite(mSrgt), 
                                                   species2 == 'sy'),REML = F) 
 
 sjPlot::tab_model(mms, mns,mnms, dv.labels = c('m', 'N', 'Nm'), digits = 4)
@@ -429,6 +283,194 @@ hline(i = which(mtb$Species == 'S. youngsoni')-1,
   compose(
     part = "body", j = 3, i = grep('log', mtb$Parameter),
     value = as_paragraph(('log'), as_sub('e'), ('NPP'))) -> fxtb_fst;fxtb_fst
+
+## figures --------------------------------------------------------
+
+freee <- 'free'
+
+
+### nm plot -----------------------------------------------------------------
+
+#### predict --------------------------------------------------------
+
+fstdatay <- fstdata %>%
+  rowwise() %>% 
+  mutate(predict = ifelse(ph, predict(mnm, newdata = data.frame(x = npp.log),
+                                      re.form = ~0), 
+                          predict(mnms,newdata = data.frame(x = npp.log), re.form = ~0)),
+         predictphase = ifelse(ph, predict(mnmp, 
+                                           newdata = data.frame(x = npp.log,
+                                                                phase = factor(phase,
+                                                                               levels = names(phaseCol)[1:3])),
+                                           re.form = ~0), NA))
+
+#### plot -----------------------------------------------------------
+
+nmplot <- ggplot(fstdatay, aes(y = fst, x = npp, fill = phase)) +
+  
+  geom_line(aes(y = predictphase, group = phase,
+                colour = phase), lwd = 2)+
+  geom_point(aes(colour = phase, fill = phase),  show.legend = F,
+             alpha = 0.2) +
+  geom_point(data = meandata, aes(y = mean.fst), 
+             colour = 'black', shape = 23, size = 3) +
+  geom_line(aes(y = predict, group = species), colour = 'grey30', lwd = 1)+
+  facet_wrap(~ species, ncol = 2, scale = freee) +
+  scale_colour_discrete(na.translate = F)+
+  theme_bw()+
+  scale_x_log10()+
+  xlab(expression('Net primary productivity '[log-scale]))+
+  ylab(expression(italic('F')[ST]))+
+  theme(panel.grid = element_blank(),
+        strip.background = element_blank(),
+        legend.position ='none',
+        legend.background = element_rect(colour = 'grey'),
+        axis.title = element_text(size = 13),
+        strip.text.x = element_text(face = 'italic', size = 12))+
+  scale_fill_manual(values = phaseCol,
+                    name = 'Population phase', na.translate = FALSE,
+                    labels = str_to_title(names(phaseCol)))+
+  scale_colour_manual(values = phaseCol,
+                      labels = str_to_title(names(phaseCol)),
+                      name = 'Population phase')
+nmplot
+
+
+### m plot ------------------------------------------------------------------
+
+#### predict --------------------------------------------------------
+
+fstdatay <- fstdata %>%
+  rowwise() %>% 
+  mutate(predict = ifelse(ph, predict(mm, newdata = data.frame(x = log(mSrgt)),
+                                      re.form = ~0), 
+                          predict(mms,newdata = data.frame(x = log(mSrgt)), re.form = ~0)),
+         predict = ifelse(is.infinite(predict), NA, predict),
+         predictphase = ifelse(ph, predict(mmp, 
+                                           newdata = data.frame(x = log(mSrgt),
+                                                                phase = factor(phase,
+                                                                               levels = names(phaseCol)[1:3])),
+                                           re.form = ~0), NA))
+
+#### plot -----------------------------------------------------------
+
+
+mplot <-fstdatay %>% 
+  ggplot(aes(mSrgt, fst, colour = phase, fill = phase, group = phase))+
+  scale_x_log10()+
+  theme_bw()+
+  facet_wrap(~species,scale = freee, ncol = 2)+
+  geom_line(aes(y = predictphase, group = phase,
+                colour = phase), lwd = 2)+
+  geom_point(alpha = 0.2)+
+  geom_point(data = meandata, aes(y = mean.fst), 
+             colour = 'black', shape = 23, size = 3)+
+  geom_line(aes(y = predict, group = species), colour = 'grey30', lwd = 1)+
+  theme(legend.position = 'inside',
+        legend.position.inside = c(0.87,0.73),
+        panel.grid = element_blank(),
+        strip.background = element_blank(),
+        legend.background = element_rect(colour = 'grey'),
+        axis.title = element_text(size = 13),
+        strip.text.x = element_text(face = 'italic', size = 12))+
+  scale_colour_manual(values = phaseCol,
+                      labels = str_to_title(names(phaseCol)),
+                      name = 'Population phase')+
+  scale_fill_manual(values = phaseCol,
+                    name = 'Population phase', na.translate = FALSE,
+                    labels = str_to_title(names(phaseCol)))+
+  ylab(expression(italic('F')[ST]))+
+  xlab(expression(italic(Nm)~" / mean captures  "[ log-scale]))
+mplot
+
+
+### n plot ------------------------------------------------------------------
+
+#### predict --------------------------------------------------------
+
+fstdatay <- fstdata %>%
+  rowwise() %>% 
+  mutate(predict = ifelse(ph, predict(mn, newdata = data.frame(x = captures),
+                                      re.form = ~0), 
+                          predict(mns,newdata = data.frame(x = captures), re.form = ~0)),
+         predictphase = ifelse(ph, predict(mnp, 
+                                           newdata = data.frame(x = captures,
+                                                                phase = factor(phase,
+                                                                               levels = names(phaseCol)[1:3])),
+                                           re.form = ~0), NA))
+
+#### plot -----------------------------------------------------------
+
+
+nplot <- fstdatay %>% 
+  ggplot(aes(captures, fst, colour = phase, fill = phase, group = phase))+
+  facet_wrap(~species,scale = freee, ncol = 2)+
+  theme_bw()+
+  geom_line(aes(y = predictphase, group = phase,
+                colour = phase), lwd = 2)+
+  geom_point(alpha = 0.2)+
+  geom_point(data = meandata, aes(y = mean.fst), 
+             colour = 'black', shape = 23, size = 3)+
+  geom_line(aes(y = predict, group = species), colour = 'grey30', lwd = 1)+
+  theme(legend.position = 'none',
+        panel.grid = element_blank(),
+        strip.background = element_blank(),
+        legend.background = element_rect(colour = 'grey'),
+        axis.title = element_text(size = 13),
+        strip.text.x = element_text(face = 'italic', size = 12))+
+  scale_colour_manual(values = phaseCol,
+                      labels = str_to_title(names(phaseCol)),
+                      name = 'Population phase')+
+  scale_fill_manual(values = phaseCol,
+                    name = 'Population phase', na.translate = FALSE,
+                    labels = str_to_title(names(phaseCol)))+
+  ylab(expression(italic('F')[ST]))+
+  xlab(expression('Mean captures '[100 /trap-nights]))
+
+nplot
+
+### arrange plot --------
+
+textNm <- grobTree(textGrob('Nm',
+                            x=0.01,  
+                            y= 0.5,
+                            hjust=0, rot = 0,     #was fontsize = 12
+                            gp=gpar(col="black", fontsize=18, fontface="italic")))
+ggplot(fstdata)+
+  textNm
+
+
+textN <- grobTree(textGrob('N',
+                           x=0.01,  
+                           y= 0.5,
+                           hjust=0, rot = 0,     #was fontsize = 12
+                           gp=gpar(col="black", fontsize=18, fontface="italic")))
+
+# 
+# library(extrafont) 
+# #font_import()
+# loadfonts(device = "win")
+
+textm <- grobTree(textGrob('m',
+                           x=0.01,  
+                           y= 0.5,
+                           hjust=0, rot = 0,     #was fontsize = 12
+                           gp=gpar(col="black", fontsize=18, fontface="italic", fontfamily = "Zapfino")))
+
+
+repx <- 12
+layout <- rbind(c(rep(1,repx), 4),
+                c(rep(2,repx), 5),
+                c(rep(3,repx), 6))
+fstmn <- grid.arrange(nmplot,nplot, 
+                      mplot+theme(legend.position = c(0.865,0.68),
+                                  legend.key.size = unit(0.45, units = 'cm')),
+                      textNm,textN, textm,
+                      layout_matrix = layout)
+
+
+ggsave(filename = './figures/caps_m_fst_spp.png', plot = fstmn,
+       units = "cm", width = 16, height = 21, dpi = 600)
 
 
 # individual --------------------------------------------------------------
