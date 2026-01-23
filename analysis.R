@@ -115,6 +115,31 @@ ibdcorrsex <- read.csv('./output/ibd_sex_analysis.csv') %>%
 # FST ---------------------------------------------------------------------
 
 
+# exploratory IBD  ------------------------------------------------------------
+
+
+fstdata_NNm %>% 
+  mutate(species = ifelse(species == 'Pseudomys hermannsburgensis',
+                          "P. hermannsburgensis", 'S. youngsoni')) %>% 
+  filter(fst>0) %>% 
+  ggplot(aes(km, fst/(1-fst), colour = phase))+
+  geom_point(alpha = 0.35) +
+  facet_wrap(species~phase, scale = 'free_x', nrow = 1)+
+  geom_smooth(se = T,method  = 'lm')+
+  theme_bw()+
+ # scale_y_log10()+
+  geom_rug(alpha = 0.35, aes(x = NULL))+
+  theme(panel.grid = element_blank(),
+        strip.background = element_blank(),
+        legend.position ='none',
+        legend.background = element_rect(colour = 'grey'),
+        axis.title = element_text(size = 13),
+        strip.text.x = element_text(size = 10, face = 'italic'))+
+  scale_color_manual(values = phaseCol)
+
+
+
+
 ## models ---------
 
 ### sy ---------
